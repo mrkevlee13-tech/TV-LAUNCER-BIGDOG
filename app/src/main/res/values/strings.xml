@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">BigDog Launcher</string>
+    <string name="accessibility_service_label">BigDog Home Button Interceptor</string>
+    <string name="accessibility_service_description">Intercepts the TV remote Home button and stock Xiaomi launcher overlays to return directly to BigDog Launcher (B2).</string>
+    <string name="hero_title">Movie Box Pro</string>
+    <string name="hero_subtitle">Open your library · 6 titles waiting</string>
+    <string name="section_apps">APPS</string>
+    <string name="section_inputs">INPUTS</string>
+    <string name="section_tv_settings">TV SETTINGS</string>
+    <string name="quick_settings_title">Quick settings</string>
+    <string name="from_your_apps">From your apps</string>
+    <string name="tab_continue">Continue</string>
+    <string name="tab_next_episode">Next episode</string>
+    <string name="tab_to_watch">To Watch</string>
+</resources>

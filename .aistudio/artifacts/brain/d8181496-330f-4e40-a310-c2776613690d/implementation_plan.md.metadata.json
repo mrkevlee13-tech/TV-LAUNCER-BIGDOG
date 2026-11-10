@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for BigDog Launcher (B2), a custom ad-free Android TV launcher for Xiaomi TV built with Jetpack Compose for TV, starting with Milestone 1 (D-pad skeleton and TV manifest configuration) and detailing the architecture for Xiaomi Home button interception and the full B2 interface.",
+  "updatedAt":  "2026-11-10T10:28:04.182883576Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
