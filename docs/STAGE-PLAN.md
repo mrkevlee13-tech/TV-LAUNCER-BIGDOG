@@ -39,7 +39,7 @@ All steps remain unticked until Kev accepts the result.
 
 - [x] S1 — All TV settings works (original Fix 8, first part)
 - [x] S2 — Every Cast button opens SmartShare (original Fix 8 / Cast shortcuts)
-- [ ] S3 — Remaining settings shortcuts work or explain why unavailable (original Fix 8)
+- [x] S3 — Settings shortcuts accepted by Kev; black-screen return issue tracked in S12 (original Fix 8)
 - [ ] S4 — App artwork has no duplicate title (original Fix 1)
 - [ ] S5 — All apps takes and keeps focus (original Fix 2)
 - [ ] S6 — Select apps, show HOME badges, then Confirm (original Fix 3)
@@ -75,6 +75,10 @@ Route the header Cast button, quick-settings Cast tile and Screen cast input pil
 
 ## S3 — Remaining settings shortcuts
 
+**Status: accepted by Kev.** Following the Wi-Fi confirmation, Kev clarified **yes but s3 is working**, accepting S3 as a stage. The main S3 checkbox is now ticked. The intermittent black screen when returning remains unresolved and is explicitly deferred to S12; it is not counted as a successful return test. Shared settings-launch failure logging is implemented, built and installed. The logging and earlier S12/S13 plan changes were committed and synced to `main` as `004702d`; this acceptance update is saved locally.
+
+**Next stage: S4 — implemented and awaiting TV test.** The checklist below preserves individual test records: Wi-Fi was specifically reported working; the other seven groups were not individually reported or tested by the agent. Their empty boxes are not a claim that they fail and do not override Kev's overall S3 acceptance. Revisit any shortcut if Kev reports a problem.
+
 Test and repair **one shortcut at a time**, including duplicate buttons. Stop for Kev's confirmation before working on the next shortcut below. The S1 main settings screen is the fallback; if that is unavailable, show a clear message. Log failures instead of swallowing them silently.
 
 Standard actions come first. Check Xiaomi alternatives against the actual TV before choosing them. The audit found standard handlers for Wi-Fi, Bluetooth, storage, sound and date/time in the disabled packages. Neither settings package registered the standard display, wireless/network or Cast action.
@@ -97,6 +101,10 @@ Xiaomi alternatives use the `com.xiaomi.mitv.settings.` prefix and remain blocke
 Remove BigDog's title overlay from banner artwork in the apps row and All apps. Keep names for tiles that use a plain icon instead of a banner. Keep titles on Continue, Next episode and To Watch thumbnails.
 
 **TV test:** inspect banner apps and icon-only apps in both places. Expect no extra title over a banner, readable names on icon-only tiles, and unchanged watch-thumbnail titles. Move focus and launch an app with OK.
+
+**Implementation — 11 November 2026; Awaiting TV test:** the home row and All apps share `DynamicInstalledAppTile`. Removed the banner branch's duplicate name and its dark text shade; retained the app-name content description, icon/fallback names, focus surface and HOME badge. Other consumers of this shared tile also receive the same banner treatment. Watch-thumbnail and hero rendering are unchanged. The PDF originally specified names on app tiles; the later fix notes and accepted S4 plan refine this to names only on icon fallback tiles.
+
+**Validation and deployment:** `:app:assembleDebug` passed (38 tasks, 4 executed), and `git diff --check` passed. The existing SDK XML warning was nonfatal. Signed the deployment copy `%TEMP%\bigdog-apk-verify\BigDog-S4-signed.apk` with the existing matching key outside Git, verified its certificate against the installed APK, then installed in place with `adb install -r`. VersionCode `1`, versionName `1.0`, TV lastUpdateTime `2026-11-11 00:00:06`. Installed SHA-256 matches the deployment file: `f82d6ecb38e2379c1a356eaad95e1289fc38312eadc7fff2ca41b3503eeeea90`. Initial cold-start wait timed out; a follow-up start returned `Status: ok`. No AndroidRuntime/ActivityManager errors appeared in the checked recent logs. This does not resolve or validate the separate S12 black-screen issue. No package states, signing configuration or app data were changed.
 
 ## S5 — All apps focus
 
@@ -164,9 +172,13 @@ Run this only after earlier stages have been accepted or explicitly deferred by 
 
 **TV test:** restart the TV normally. Expect it to land on BigDog, with Home still working. Check saved pins, wallpaper and animation choice. Open an app, the settings screen, SmartShare and the PS5 input. Check an empty input and exercise arrows, OK and Back across the launcher. Confirm no package was left in an unagreed state.
 
-## Current handoff — S3 Wi-Fi, 10 November 2026
+## Current handoff — S4, 11 November 2026
 
-**Status: Wi-Fi opening confirmed; return issue deferred to S12.** Kev confirmed **wifi settings working**, then reported intermittent black-screen return and requested S12 for the return/presentation work. Wi-Fi opening is ticked; reliable return is not recorded as passed. S3 overall remains unticked. Bluetooth and all later shortcuts have not started.
+**Status: Awaiting TV test.** S3 is accepted by Kev. S4 is implemented, built and installed as recorded above, but remains unticked pending his confirmation. Test banner and icon-only tiles in the home row and All apps, watch-thumbnail titles, visible focus, OK launch and Back. S5 has not started. On 11 November 2026, Kev requested committing and syncing the S3 acceptance and S4 update to GitHub. That version-control request is not recorded as S4 TV acceptance.
+
+## Previous S3 handoff — 10 November 2026
+
+**Status: S3 accepted by Kev; return issue deferred to S12.** Kev first confirmed **wifi settings working**, then clarified **yes but s3 is working**. S3 is ticked on that overall confirmation. Reliable return is not recorded as passed, and no additional individual shortcut tests are claimed.
 
 - Both the header Wi-Fi pill and quick tile already use `android.settings.WIFI_SETTINGS` through the shared view-model handler. This matches the PDF's standard-action-first approach. The notes' blocked-settings diagnosis no longer applies to Wi-Fi after S1: the action now resolves and launches `com.android.tv.settings/.connectivity.NetworkActivity` with `Status: ok`. Main Settings also resolves. No Xiaomi alternative is needed.
 - Added warning/error logs under `BigDogSettings` for failed primary and fallback launches, including the action and exception. Existing routing, fallback and on-screen messages are preserved. No other shortcut was repaired or tested; no TV settings or package states changed.
@@ -175,7 +187,7 @@ Run this only after earlier stages have been accepted or explicitly deferred by 
 - Installed versionCode `1`, versionName `1.0`, lastUpdateTime `2026-11-10 23:51:17`. Installed APK hash matches the signed deployment copy: `6e9e85b0cca1a576d3a5f05cac2d120ae960b594c1ac4e41e54f8ec66bc1e981`.
 - Initial cold-start wait timed out; follow-up returned `Status: ok` in 7 ms. BigDog is resumed and owns the focused window. No errors appeared in the checked recent AndroidRuntime/ActivityManager/BigDogSettings logs.
 - **Remote test:** open the header Wi-Fi pill with arrows and OK. Inspect the network screen without changing settings, then Back to BigDog. Repeat through quick settings → Wi-Fi. Both should open the same network screen with usable focus and navigation. Back may return to the still-open quick panel; close it with another Back. Check Home returns to BigDog. Do not toggle Wi-Fi or disconnect the TV.
-- Next S3 shortcut: Bluetooth, one shortcut at a time. S12 is planned separately at Kev's request; the former S11 final check is now S13, with S11 reserved. The follow-up plan changes are documentation only, so no new APK build/install is required. Kev subsequently requested committing and syncing the Wi-Fi logging change and updated plan to GitHub.
+- Next stage: S4, not started. S12 is planned separately at Kev's request; the former S11 final check is now S13, with S11 reserved. This acceptance update is documentation only, so no new APK build/install is required. Commit `004702d` contains the logging and earlier plan changes; this follow-up acceptance has not been committed or synced.
 
 ## Previous S2 handoff (superseded by S3 Wi-Fi above)
 
@@ -201,3 +213,4 @@ Only record acceptance after Kev confirms it. Include individual S3 shortcuts an
 | S1 | Enabled only `com.android.tv.settings`; existing APK, no code change | Main settings resolved and launched; Kev confirmed the remote test worked | "Works — keep settings enabled", 10 November 2026 |
 | S2 | Three Cast controls routed to SmartShare; build passed; matching signed APK installed and hash-verified at 23:46:16 | Kev confirmed SmartShare works; specific casting platform not reported | "smart share working. update, save and sync", 10 November 2026 |
 | S3 Wi-Fi opening | Existing standard route plus shared failure logging; signed APK installed at 23:51:17 | Settings opens. Intermittent black screen on return remains unresolved and is deferred to S12; no full return-navigation pass claimed | "wifi settings working", with black-screen report and request for S12, 10 November 2026 |
+| S3 overall | Same installed build; no further app changes | Kev accepted the stage overall. Other shortcut results were not individually supplied; black-screen return remains open under S12 | "yes but s3 is working", 10 November 2026 |

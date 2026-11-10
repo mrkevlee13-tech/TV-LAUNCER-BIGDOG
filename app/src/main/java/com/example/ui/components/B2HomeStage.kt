@@ -634,36 +634,12 @@ fun DynamicInstalledAppTile(
         modifier = modifier
     ) {
         if (app.bannerBitmap != null) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Image(
-                    bitmap = app.bannerBitmap,
-                    contentDescription = app.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.72f)
-                                )
-                            )
-                        )
-                )
-                Text(
-                    text = app.name,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                    color = B2MainText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                )
-            }
+            Image(
+                bitmap = app.bannerBitmap,
+                contentDescription = app.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
             Column(
                 modifier = Modifier
