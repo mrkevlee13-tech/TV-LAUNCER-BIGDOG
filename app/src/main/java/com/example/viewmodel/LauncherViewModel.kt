@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
@@ -503,6 +504,8 @@ class LauncherViewModel : ViewModel() {
         val launchedPrimary = runCatching {
             context.startActivity(primaryIntent)
             true
+        }.onFailure { error ->
+            Log.w("BigDogSettings", "Unable to open $label: action=$action; trying main Settings", error)
         }.getOrDefault(false)
 
         if (launchedPrimary) return
@@ -513,6 +516,8 @@ class LauncherViewModel : ViewModel() {
         val launchedFallback = runCatching {
             context.startActivity(fallbackIntent)
             true
+        }.onFailure { error ->
+            Log.e("BigDogSettings", "Unable to open main Settings after $label: action=$action", error)
         }.getOrDefault(false)
 
         if (launchedFallback) {

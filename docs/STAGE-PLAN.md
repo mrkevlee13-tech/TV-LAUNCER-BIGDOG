@@ -47,7 +47,9 @@ All steps remain unticked until Kev accepts the result.
 - [ ] S8 — Better wallpapers and animation controls (original Fix 5)
 - [ ] S9 — Wallpaper preview follows the highlighted preset (original Fix 6)
 - [ ] S10 — Home always returns to BigDog home (original Fix 7)
-- [ ] S11 — Final restart and regression test
+- S11 — Reserved following Kev's requested renumbering; no work assigned
+- [ ] S12 — Settings backdrop and reliable return to BigDog
+- [ ] S13 — Final restart and regression test (previously S11)
 
 ## S1 — All TV settings
 
@@ -77,7 +79,7 @@ Test and repair **one shortcut at a time**, including duplicate buttons. Stop fo
 
 Standard actions come first. Check Xiaomi alternatives against the actual TV before choosing them. The audit found standard handlers for Wi-Fi, Bluetooth, storage, sound and date/time in the disabled packages. Neither settings package registered the standard display, wireless/network or Cast action.
 
-- [ ] Wi-Fi — header button and quick tile
+- [x] Wi-Fi — settings opening confirmed; intermittent black-screen return deferred to S12 at Kev's request
 - [ ] Bluetooth — header button and quick tile
 - [ ] Display and picture — consider Xiaomi `DISPLAYSOUND_SETTINGS`
 - [ ] Sound
@@ -138,13 +140,44 @@ Inspect `MainActivity`, navigation state, the manifest and the accessibility ser
 
 **TV test:** press Home from wallpaper/appearance, All apps, quick settings and Search, then from another app. Expect BigDog home each time, with no leftover overlay and a visible usable focus. Check Back still works independently.
 
-## S11 — Final TV check
+## S11 — Reserved
+
+Kev requested the new settings presentation work as S12 and the existing final check moved from S11 to S13. No additional S11 task has been invented.
+
+## S12 — Settings backdrop and reliable return
+
+**Requested by Kev — 10 November 2026:** Wi-Fi settings opens, but the settings screen has a black background. On returning, BigDog sometimes appears frozen on black until repeated Back or Home presses. Kev reports no home-screen crash so far; this is an observation, not a verified diagnosis. He asked to schedule this separately from S3.
+
+**Desired result:** settings appear over the BigDog home screen with the home dimmed and slightly blurred, where supported. Returning restores a visible, responsive home screen and predictable focus without repeated button presses.
+
+Work on return reliability first, then presentation, with a remote confirmation between parts. Reproduce from the header and quick panel; inspect activity/task/window state, lifecycle, focus and logs during the black-screen interval. Establish whether the black surface belongs to BigDog or the external settings activity before choosing a fix. Do not assume the previously observed cold-start timeout proves this return issue has the same cause.
+
+Distinguish BigDog's own quick-settings panel from external Android/Xiaomi settings screens. Check whether the actual system activity supports a transparent or panel presentation; a BigDog backdrop effect alone cannot guarantee visibility through an opaque external window. Report what is supported and agree an alternative if the requested appearance is unavailable. Preserve access to real system settings, remote navigation, Home setup and package states. Keep blur inexpensive on this Android 9 TV; assess performance before adopting it.
+
+**TV test, return reliability:** repeatedly open Wi-Fi from the header and quick panel, navigate without changing settings, and Back out one level at a time. Expect BigDog to reappear promptly with visible usable focus and no persistent black screen or repeated key presses. Check Home from settings too. Record any remaining failure separately from whether the settings shortcut opens.
+
+**TV test, presentation:** verify each supported settings entry shows the intended home backdrop, dim and slight blur; settings alone receives focus while open. Closing it restores normal home appearance and focus. Check responsiveness and record any external screens that must retain their own background. Only accept S12 after Kev confirms the result or explicitly accepts a documented limitation.
+
+## S13 — Final TV check (previously S11)
 
 Run this only after earlier stages have been accepted or explicitly deferred by Kev. List any deferred work; do not silently treat it as passed.
 
 **TV test:** restart the TV normally. Expect it to land on BigDog, with Home still working. Check saved pins, wallpaper and animation choice. Open an app, the settings screen, SmartShare and the PS5 input. Check an empty input and exercise arrows, OK and Back across the launcher. Confirm no package was left in an unagreed state.
 
-## Current handoff
+## Current handoff — S3 Wi-Fi, 10 November 2026
+
+**Status: Wi-Fi opening confirmed; return issue deferred to S12.** Kev confirmed **wifi settings working**, then reported intermittent black-screen return and requested S12 for the return/presentation work. Wi-Fi opening is ticked; reliable return is not recorded as passed. S3 overall remains unticked. Bluetooth and all later shortcuts have not started.
+
+- Both the header Wi-Fi pill and quick tile already use `android.settings.WIFI_SETTINGS` through the shared view-model handler. This matches the PDF's standard-action-first approach. The notes' blocked-settings diagnosis no longer applies to Wi-Fi after S1: the action now resolves and launches `com.android.tv.settings/.connectivity.NetworkActivity` with `Status: ok`. Main Settings also resolves. No Xiaomi alternative is needed.
+- Added warning/error logs under `BigDogSettings` for failed primary and fallback launches, including the action and exception. Existing routing, fallback and on-screen messages are preserved. No other shortcut was repaired or tested; no TV settings or package states changed.
+- `:app:assembleDebug` passed (38 tasks, 4 executed). The existing SDK XML warning was nonfatal. Source review confirmed both Wi-Fi controls use the same handler. Failure branches were reviewed without disabling a working settings package to force errors.
+- Signed a deployment copy using the existing matching key outside Git, checked its certificate against the installed APK, and installed with `adb install -r`. No uninstall; app data and Home setup preserved. Deployment file: `%TEMP%\bigdog-apk-verify\BigDog-S3-Wifi-signed.apk`.
+- Installed versionCode `1`, versionName `1.0`, lastUpdateTime `2026-11-10 23:51:17`. Installed APK hash matches the signed deployment copy: `6e9e85b0cca1a576d3a5f05cac2d120ae960b594c1ac4e41e54f8ec66bc1e981`.
+- Initial cold-start wait timed out; follow-up returned `Status: ok` in 7 ms. BigDog is resumed and owns the focused window. No errors appeared in the checked recent AndroidRuntime/ActivityManager/BigDogSettings logs.
+- **Remote test:** open the header Wi-Fi pill with arrows and OK. Inspect the network screen without changing settings, then Back to BigDog. Repeat through quick settings → Wi-Fi. Both should open the same network screen with usable focus and navigation. Back may return to the still-open quick panel; close it with another Back. Check Home returns to BigDog. Do not toggle Wi-Fi or disconnect the TV.
+- Next S3 shortcut: Bluetooth, one shortcut at a time. S12 is planned separately at Kev's request; the former S11 final check is now S13, with S11 reserved. The follow-up plan changes are documentation only, so no new APK build/install is required. Kev subsequently requested committing and syncing the Wi-Fi logging change and updated plan to GitHub.
+
+## Previous S2 handoff (superseded by S3 Wi-Fi above)
 
 - Current step: **S2 accepted; S3 has not started.** S1 remains accepted.
 - Version control: `b45be5e` records the plan, project instructions and accepted S1 result. Kev authorised saving and syncing the accepted S2 changes and mandatory automatic-install rule to GitHub.
@@ -167,3 +200,4 @@ Only record acceptance after Kev confirms it. Include individual S3 shortcuts an
 | --- | --- | --- | --- |
 | S1 | Enabled only `com.android.tv.settings`; existing APK, no code change | Main settings resolved and launched; Kev confirmed the remote test worked | "Works — keep settings enabled", 10 November 2026 |
 | S2 | Three Cast controls routed to SmartShare; build passed; matching signed APK installed and hash-verified at 23:46:16 | Kev confirmed SmartShare works; specific casting platform not reported | "smart share working. update, save and sync", 10 November 2026 |
+| S3 Wi-Fi opening | Existing standard route plus shared failure logging; signed APK installed at 23:51:17 | Settings opens. Intermittent black screen on return remains unresolved and is deferred to S12; no full return-navigation pass claimed | "wifi settings working", with black-screen report and request for S12, 10 November 2026 |
