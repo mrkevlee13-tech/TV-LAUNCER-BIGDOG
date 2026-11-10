@@ -468,6 +468,15 @@ object TvSystemRepository {
         }.getOrDefault(false)
     }
 
+    fun activateScreenCast(context: Context): String {
+        // SmartShare exposes a normal launcher entry point on this Xiaomi TV.
+        return if (launchPackageIfInstalled(context, "com.xiaomi.mitv.smartshare")) {
+            "Opened SmartShare"
+        } else {
+            "Unable to open SmartShare on this TV"
+        }
+    }
+
     /**
      * Queries real hardware input connection states from TvInputManager, StorageManager/UsbManager,
      * and DisplayManager. Never fakes "Connected" or "Ready" when disconnected!
@@ -765,21 +774,7 @@ object TvSystemRepository {
             }
 
             HardwareInputType.SCREEN_CAST -> {
-                val castIntent = Intent(Settings.ACTION_CAST_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                val launched = runCatching {
-                    context.startActivity(castIntent)
-                    true
-                }.getOrDefault(false) || runCatching {
-                    val fallback = Intent(Settings.ACTION_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(fallback)
-                    true
-                }.getOrDefault(false)
-
-                if (launched) "Opened Screen Cast settings" else "Screen Cast: ${pill.status}"
+                activateScreenCast(context)
             }
         }
     }

@@ -492,6 +492,11 @@ class LauncherViewModel : ViewModel() {
     }
 
     fun launchSettingsWithFallback(context: Context, action: String, label: String) {
+        if (action == Settings.ACTION_CAST_SETTINGS) {
+            showToast(context, TvSystemRepository.activateScreenCast(context))
+            return
+        }
+
         val primaryIntent = Intent(action).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }

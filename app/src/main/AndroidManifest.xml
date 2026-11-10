@@ -29,6 +29,7 @@
 
     <queries>
         <package android:name="com.movieboxpro.android" />
+        <package android:name="com.xiaomi.mitv.smartshare" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
