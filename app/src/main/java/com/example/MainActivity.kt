@@ -165,6 +165,27 @@ fun BigDogLauncherScreen(
     val context = LocalContext.current
     val heroFocusRequester = remember { FocusRequester() }
     val settingsFocusRequester = remember { FocusRequester() }
+    val railAllAppsFocusRequester = remember { FocusRequester() }
+    val homeAllAppsFocusRequester = remember { FocusRequester() }
+    val homeAppsListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var allAppsOpenedFromRail by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var allAppsWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(uiState.isAllAppsOverlayOpen) {
+        if (allAppsWasOpen && !uiState.isAllAppsOverlayOpen) {
+            if (allAppsOpenedFromRail && uiState.showLeftSidebar) {
+                androidx.compose.runtime.withFrameNanos { }
+                railAllAppsFocusRequester.requestFocus()
+            } else {
+                val homeCount = if (uiState.hasSavedHomeSelection) {
+                    uiState.installedApps.count { it.isPinned }
+                } else uiState.installedApps.take(6).size
+                homeAppsListState.scrollToItem(homeCount)
+                androidx.compose.runtime.withFrameNanos { }
+                homeAllAppsFocusRequester.requestFocus()
+            }
+        }
+        allAppsWasOpen = uiState.isAllAppsOverlayOpen
+    }
     val scrollState = rememberScrollState()
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -208,7 +229,7 @@ fun BigDogLauncherScreen(
         when {
             uiState.isHeroSelectorOpen -> viewModel.setHeroSelectorOpen(false)
             uiState.isAddToWatchDialogOpen -> viewModel.setAddToWatchDialogOpen(false)
-            uiState.isAllAppsOverlayOpen -> viewModel.setAllAppsOverlayOpen(false)
+            uiState.isAllAppsOverlayOpen -> if (!uiState.isSavingHomeApps) viewModel.setAllAppsOverlayOpen(false)
             uiState.isSearchOverlayOpen -> viewModel.setSearchOverlayOpen(false)
             uiState.isQuickSettingsOpen -> viewModel.setQuickSettingsOpen(false)
             uiState.selectedRail != RailDestination.HOME -> {
@@ -240,12 +261,14 @@ fun BigDogLauncherScreen(
         )
 
         Row(modifier = Modifier.fillMaxSize().focusProperties {
-            canFocus = !uiState.isQuickSettingsOpen
+            canFocus = !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen
         }) {
             // Left 88dp Side Rail (#0B0D0F)
             if (uiState.showLeftSidebar) B2SideRail(
+                allAppsFocusRequester = railAllAppsFocusRequester,
                 selectedDestination = uiState.selectedRail,
                 onSelectDestination = { destination ->
+                    if (destination == RailDestination.ALL_APPS) allAppsOpenedFromRail = true
                     viewModel.onSideRailClicked(context, destination)
                 }
             )
@@ -284,7 +307,7 @@ fun BigDogLauncherScreen(
                         .weight(1f)
                         .fillMaxHeight()
                         .verticalScroll(scrollState)
-                        .padding(horizontal = 36.dp, vertical = 24.dp),
+                        .padding(horizontal = 12.dp, vertical = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
                     B2HeaderBar(
@@ -316,7 +339,13 @@ fun BigDogLauncherScreen(
                         installedApps = uiState.installedApps,
                         isLoading = uiState.isLoadingApps,
                         onAppClick = { app -> viewModel.onInstalledAppClicked(context, app) },
-                        onAllAppsClick = { viewModel.setAllAppsOverlayOpen(true) }
+                        allAppsFocusRequester = homeAllAppsFocusRequester,
+                        listState = homeAppsListState,
+                        hasSavedHomeSelection = uiState.hasSavedHomeSelection,
+                        onAllAppsClick = {
+                            allAppsOpenedFromRail = false
+                            viewModel.setAllAppsOverlayOpen(true)
+                        }
                     )
 
                     B2InputsRowSection(
@@ -352,7 +381,11 @@ fun BigDogLauncherScreen(
             B2AllAppsOverlayModal(
                 installedApps = uiState.installedApps,
                 onAppClick = { app -> viewModel.onInstalledAppClicked(context, app) },
-                onTogglePinApp = { app -> viewModel.togglePinInstalledApp(context, app) },
+                initialHomePackages = (if (uiState.hasSavedHomeSelection) {
+                    uiState.installedApps.filter { it.isPinned }
+                } else uiState.installedApps.take(6)).map { it.packageName },
+                isSaving = uiState.isSavingHomeApps,
+                onConfirmHomeApps = { viewModel.confirmHomeApps(context, it) },
                 onSetHeroApp = { app -> viewModel.setFeaturedHeroApp(context, app) },
                 onClose = { viewModel.setAllAppsOverlayOpen(false) }
             )

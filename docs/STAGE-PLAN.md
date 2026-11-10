@@ -42,8 +42,8 @@ All steps remain unticked until Kev accepts the result.
 - [x] S3 — Settings shortcuts accepted by Kev; black-screen return issue tracked in S13 (original Fix 8)
 - [x] S4 — Show or hide the left sidebar in BigDog custom settings
 - [x] S5 — App artwork has no duplicate title (original Fix 1)
-- [ ] S6 — All apps takes and keeps focus (original Fix 2)
-- [ ] S7 — Select apps, show HOME badges, then Confirm (original Fix 3)
+- [x] S6 — All apps takes and keeps focus (original Fix 2)
+- [x] S7 — Select apps, show HOME badges, then Confirm (original Fix 3)
 - [ ] S8 — HDMI / AV state, preview and full screen work (original Fix 4)
 - [ ] S9 — Better wallpapers and animation controls (original Fix 5)
 - [ ] S10 — Wallpaper preview follows the highlighted preset (original Fix 6)
@@ -78,7 +78,7 @@ Route the header Cast button, quick-settings Cast tile and Screen cast input pil
 
 **Status: accepted by Kev.** Following the Wi-Fi confirmation, Kev clarified **yes but s3 is working**, accepting S3 as a stage. The main S3 checkbox is now ticked. The intermittent black screen when returning remains unresolved and is explicitly deferred to S13; it is not counted as a successful return test. Shared settings-launch failure logging is implemented, built and installed. The logging and earlier S13/S14 plan changes were committed and synced to `main` as `004702d`; the S3 acceptance was subsequently committed and synced in `9d6509f`.
 
-**Next stage: S6 - All apps focus, not started.** S4 sidebar visibility and S5 banner titles were accepted by Kev on 11 November 2026. The checklist below preserves individual test records: Wi-Fi was specifically reported working; the other seven groups were not individually reported or tested by the agent. Their empty boxes are not a claim that they fail and do not override Kev's overall S3 acceptance. Revisit any shortcut if Kev reports a problem.
+**Next stage: S8 - HDMI / AV diagnostics, not started.** S6 and S7 were implemented together at Kev's request and accepted on 11 November 2026. S4 sidebar visibility and S5 banner titles were accepted by Kev on 11 November 2026. The checklist below preserves individual test records: Wi-Fi was specifically reported working; the other seven groups were not individually reported or tested by the agent. Their empty boxes are not a claim that they fail and do not override Kev's overall S3 acceptance. Revisit any shortcut if Kev reports a problem.
 
 Test and repair **one shortcut at a time**, including duplicate buttons. Stop for Kev's confirmation before working on the next shortcut below. The S1 main settings screen is the fallback; if that is unavailable, show a clear message. Log failures instead of swallowing them silently.
 
@@ -121,15 +121,19 @@ Remove BigDog's title overlay from banner artwork in the apps row and All apps. 
 
 ## S6 — All apps focus
 
+**Accepted - 11 November 2026:** Kev confirmed the final full-screen All apps view works. See current handoff for implementation and deployment.
+
 Move focus straight into All apps when it opens, keep the home controls underneath from taking focus, and restore focus to the opener when Back closes it. Inspect the current focus handling before choosing an implementation.
 
 **TV test:** open All apps from the side rail and then from the home-row tile. Expect the first app to be focused immediately. The first Right press moves within the overlay; arrows cannot reach the home screen underneath. OK opens the selected app. Back closes the overlay and returns focus to its opener.
 
 ## S7 — App selection and Confirm
 
+**Accepted - 11 November 2026:** Kev confirmed Confirm saves and Cancel/Back discard, then stated **s7 works perfectly**.
+
 Replace the pin-mode step with direct selection in the app selection view. Existing home apps start selected. Selecting a tile toggles its green HOME badge. Confirm saves the draft; Back or Cancel discards it.
 
-Check and report the real home-row capacity before coding. The current source shows all pinned apps, with a six-app fallback when none are pinned; do not assume six is an existing enforced limit. Agree the limit or overflow behaviour with Kev before implementing it.
+Capacity checked: the home row had no enforced limit and scrolled horizontally, with a six-app fallback when none were pinned. Kev explicitly chose **Keep unlimited apps with horizontal scrolling** on 11 November 2026. Preserve that behaviour. An explicitly confirmed empty selection now remains empty; only a never-configured selection uses the fallback.
 
 **TV test:** open selection, select two apps and deselect one. Expect badges to follow the draft. Confirm and check the home row, then reopen and verify saved selection. Change the draft and use Cancel, then repeat with Back; both must leave saved pins unchanged. Test the agreed capacity or overflow behaviour.
 
@@ -185,20 +189,19 @@ Run this only after earlier stages have been accepted or explicitly deferred by 
 
 **TV test:** restart the TV normally. Expect it to land on BigDog, with Home still working. Check saved pins, wallpaper and animation choice. Open an app, the settings screen, SmartShare and the PS5 input. Check an empty input and exercise arrows, OK and Back across the launcher. Confirm no package was left in an unagreed state.
 
-## Current handoff — S4 sidebar option, 11 November 2026
+## Current handoff - S6 + S7, 11 November 2026
 
-**Status: S4 and S5 accepted by Kev on 11 November 2026.** S1-S5 are ticked complete. Kev confirmed S4 with **perfect**, explicitly accepted S5, and requested saving, committing and syncing. S6 is next and has not started. No later stage was implemented in this pass.
+**Status: S6 and S7 accepted by Kev.** Kev explicitly requested these two stages together, overriding the normal one-stage workflow for this pair. S1-S7 are ticked complete. S8 is next and has not started. Kev subsequently requested saving, committing and syncing the accepted changes.
 
-- Added **Custom app functions > Show left sidebar** to quick settings. The sidebar defaults to visible, its saved Boolean preference survives restarts, and removing it releases its full 88dp width to the home content.
-- Added **Search apps** in quick settings so hiding the rail does not remove Search access. The header settings button, home hero, All apps tile, input row and existing wallpaper-settings row retain the other routes. The wallpaper screen retains Back to home.
-- Quick settings initially focuses the toggle. Home controls cannot receive focus while that panel is open; closing it requests focus on the visible header settings control. The sidebar is removed from composition when hidden, so hidden rail controls cannot take focus.
-- Validation: `:app:assembleDebug` passed (38 tasks, 4 executed); `git diff --check` passed. Existing SDK XML warning remains nonfatal. TV connection is `192.168.3.19:5555`, device state `device`.
-- Deployment: signed `%TEMP%\bigdog-apk-verify\BigDog-S4-sidebar-signed.apk` with the existing key outside Git. Certificate matched the prior installed APK; `adb install -r` succeeded, preserving app data. Installed SHA-256 matches: `a724aca74308cc5743f59cf2658c05533ae30c1c5567728d10e7bb8c3888aff9`. VersionCode `1`, versionName `1.0`, lastUpdateTime `2026-11-11 00:13:00`.
-- Launch: initial cold-start wait timed out; follow-up returned `Status: ok`, with BigDog resumed and owning the focused window. No errors appeared in the checked recent AndroidRuntime/ActivityManager logs. This does not resolve the separate S13 return/black-screen issue.
-- Basic ADB UI checks showed the toggle receiving focus and changing On/Off with OK, and the close button restoring focus to the header settings button. Restored sidebar On. UI dumps intermittently returned a null root during transitions; automated Back checks were inconclusive. Kev subsequently accepted S4 overall; no individual Back or restart test results were supplied.
-- Remote test: open the header quick-settings button; toggle **Custom app functions > Show left sidebar** Off with OK, then close with Back. Expect the sidebar and its reserved space to disappear and usable visible focus. Reopen through the header, check Search apps and wallpaper access, and restore On. Check All apps, hero and inputs remain reachable. Hide again, restart the app and TV when convenient, and confirm Off persists and settings stays accessible. If Back sticks or shows black, report it; do not count that as passed.
-- Kev authorised commit and sync of the accepted changes. S6 is next; do not start it until requested. The app build is already installed and verified; this acceptance update changes documentation only, so no new build/install is needed.
-
+- All apps owns a separate focusable, opaque full-screen popup. First app receives focus on entry, including when installed apps finish loading. Home cannot take focus underneath. Closing requests the original rail or home-row All apps control. The home row scrolls its opener into view after a selection changes its length.
+- Launching apps remains the default. **Select Home apps** enters selection directly, focuses the first app and toggles draft green HOME badges with OK. **Confirm** writes the entire selection in one DataStore edit. **Cancel** and **Back** close without saving. A failed save keeps the draft open with a retry message. The existing hero-app choice remains available outside selection.
+- Kev agreed unlimited selected apps with horizontal scrolling. Existing visible fallback apps start selected on a never-configured Home. An explicitly confirmed empty selection stays empty rather than restoring fallback apps. Existing saved pins are retained until Confirm.
+- Home horizontal padding is reduced from 36dp to 12dp on each side, keeping room for focus rings and releasing the rail's reserved width when hidden. Kev additionally requested All apps fully cover Home, including the header. The initial Android dialog left a 24px top/bottom window gap observed in a TV screenshot; the final popup removes that gap and uses an opaque background.
+- Validation: final `:app:assembleDebug` passed (38 tasks, 4 executed); `git diff --check` passed. Existing SDK XML warning remains nonfatal. Basic UI checks observed first-app focus, Right moving to the second app and Back restoring the home-row All apps tile. Some transition-time UI dumps failed and are not counted as evidence. No errors appeared in the checked recent AndroidRuntime/ActivityManager logs.
+- Final deployment: matching signed APK `%TEMP%/bigdog-apk-verify/BigDog-S6-S7-popup-signed.apk`, installed with `adb install -r` on `192.168.3.19:5555`. VersionCode `1`, versionName `1.0`, lastUpdateTime `2026-11-11 00:47:51`. Installed APK SHA-256 matches the signed file: `9cfe013d65bac09ad70364d1d2621b161bb913cae739b3b28bbff2161bbe2eac`. App data and signing setup preserved; no TV settings or package states changed. Cold-start wait timed out, then the read-only foreground check confirmed BigDog resumed and its popup owning focus. This does not resolve S13.
+- Acceptance: Kev confirmed **perfect, now full screen, all apps working fine as well.** For S7 he explicitly answered **All three work - mark S7 complete** to the Confirm/Cancel/Back test and added **s7 works perfectly**. Both stages are accepted. No separate TV restart, zero-selection or per-sidebar-route results are claimed.
+- Test brief supplied: open All apps from sidebar and Home tile; expect first-app focus, arrows staying inside, OK launching and Back restoring the opener. In Select Home apps, toggle two on and one off, Confirm and reopen to verify; repeat with Cancel and Back and expect saved Home unchanged. Extra selected apps scroll horizontally. Check Home margins with sidebar On/Off, empty selection and persistence after restart when convenient.
+- Next: S8 read-only HDMI / AV diagnostics, only when requested. Kev explicitly authorised committing and syncing this accepted S6/S7 update. The accepted app build is already installed; this handoff update changes documentation only.
 
 ## Previous S3 handoff — 10 November 2026
 
@@ -240,3 +243,5 @@ Only record acceptance after Kev confirms it. Include individual S3 shortcuts an
 | S3 overall | Same installed build; no further app changes | Kev accepted the stage overall. Other shortcut results were not individually supplied; black-screen return remains open under S13 | "yes but s3 is working", 10 November 2026 |
 | S4 | Sidebar toggle, persisted preference, full-width layout and retained settings/Search access; signed APK installed at 00:13:00 | Kev accepted the stage overall; full TV restart was not separately reported | "perfect", with request to commit, sync and mark complete, 11 November 2026 |
 | S5 | Duplicate banner labels removed; icon fallback names retained; included in installed S4 build | Kev explicitly accepted S5 as already updated and requested it be ticked complete | Explicit S5 completion confirmation, 11 November 2026 |
+| S6 | Full-screen All apps popup, first-app focus, underlying Home blocked and opener restoration; final APK installed at 00:47:51 | Kev confirmed full screen and All apps working | "perfect, now full screen, all apps working fine as well", 11 November 2026 |
+| S7 | Draft HOME selection, atomic Confirm, Cancel/Back discard, unlimited horizontal Home row | Kev explicitly confirmed all three actions work | "All three work - mark S7 complete" and "s7 works perfectly", 11 November 2026 |

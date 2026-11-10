@@ -67,6 +67,7 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun B2SideRail(
+    allAppsFocusRequester: FocusRequester,
     selectedDestination: RailDestination,
     onSelectDestination: (RailDestination) -> Unit,
     modifier: Modifier = Modifier
@@ -120,7 +121,8 @@ fun B2SideRail(
                     destination = destination,
                     isSelected = selectedDestination == destination,
                     icon = railIconFor(destination, isSelected = selectedDestination == destination),
-                    onClick = { onSelectDestination(destination) }
+                    onClick = { onSelectDestination(destination) },
+                    focusRequester = if (destination == RailDestination.ALL_APPS) allAppsFocusRequester else null
                 )
             }
         }
@@ -146,7 +148,8 @@ private fun SideRailButton(
     destination: RailDestination,
     isSelected: Boolean,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
 ) {
     Box(
         modifier = Modifier
@@ -167,6 +170,7 @@ private fun SideRailButton(
 
         TvFocusableSurface(
             itemId = destination.id,
+            focusRequester = focusRequester,
             shape = RoundedCornerShape(16.dp),
             restingColor = if (isSelected) B2RaisedSurface else Color.Transparent,
             focusedColor = B2RaisedSurface,

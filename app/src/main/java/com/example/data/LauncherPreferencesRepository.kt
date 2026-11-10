@@ -24,6 +24,7 @@ private val Context.launcherDataStore: DataStore<Preferences> by preferencesData
 data class PersistedLauncherPrefs(
     val showLeftSidebar: Boolean,
     val pinnedPackages: List<String>,
+    val hasSavedHomeSelection: Boolean,
     val recentPackages: List<String>,
     val heroPackageName: String,
     val heroCustomLabel: String?,
@@ -76,6 +77,7 @@ object LauncherPreferencesRepository {
             PersistedLauncherPrefs(
                 showLeftSidebar = prefs[KEY_SHOW_LEFT_SIDEBAR] ?: true,
                 pinnedPackages = pinnedList,
+                hasSavedHomeSelection = prefs[KEY_PINNED_PACKAGES] != null,
                 recentPackages = recentList,
                 heroPackageName = heroPkg,
                 heroCustomLabel = heroLabel,

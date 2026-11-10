@@ -48,6 +48,8 @@ data class LauncherUiState(
     val isHeroSelectorOpen: Boolean = false,
     val isAddToWatchDialogOpen: Boolean = false,
     val isAllAppsOverlayOpen: Boolean = false,
+    val hasSavedHomeSelection: Boolean = false,
+    val isSavingHomeApps: Boolean = false,
     val isSearchOverlayOpen: Boolean = false,
     val wifiDisplayName: String = "Wi-Fi",
     val quickSettingTiles: List<QuickSettingTileItem> = emptyList(),
@@ -160,6 +162,7 @@ class LauncherViewModel : ViewModel() {
         _uiState.update { state ->
             state.copy(
                 showLeftSidebar = prefs.showLeftSidebar,
+                hasSavedHomeSelection = prefs.hasSavedHomeSelection,
                 installedApps = result.apps,
                 isLoadingApps = false,
                 heroPackageName = prefs.heroPackageName,
@@ -345,23 +348,25 @@ class LauncherViewModel : ViewModel() {
         }
     }
 
-    fun togglePinInstalledApp(context: Context, app: InstalledTvApp) {
-        val appContext = context.applicationContext
+    fun confirmHomeApps(context: Context, packages: List<String>) {
+        if (_uiState.value.isSavingHomeApps) return
+        _uiState.update { it.copy(isSavingHomeApps = true) }
         viewModelScope.launch {
-            val currentPrefs = LauncherPreferencesRepository.observePreferences(appContext).first()
-            val currentPinned = currentPrefs.pinnedPackages.toMutableList()
-            val nowPinned = if (app.packageName in currentPinned) {
-                currentPinned.remove(app.packageName)
-                false
-            } else {
-                currentPinned.add(app.packageName)
-                true
+            runCatching {
+                LauncherPreferencesRepository.savePinnedPackages(context.applicationContext, packages)
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        installedApps = state.installedApps.map { it.copy(isPinned = it.packageName in packages) },
+                        hasSavedHomeSelection = true,
+                        isSavingHomeApps = false
+                    )
+                }
+                setAllAppsOverlayOpen(false)
+            }.onFailure {
+                _uiState.update { it.copy(isSavingHomeApps = false) }
+                showToast(context, "Unable to save Home apps. Try Confirm again.")
             }
-            LauncherPreferencesRepository.savePinnedPackages(appContext, currentPinned)
-            showToast(
-                appContext,
-                if (nowPinned) "Added ${app.name} to Home APPS row" else "Removed ${app.name} from Home APPS row"
-            )
         }
     }
 

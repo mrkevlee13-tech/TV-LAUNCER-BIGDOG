@@ -39,9 +39,7 @@ import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Tv
@@ -425,181 +423,132 @@ private fun quickRowIconFor(id: String): ImageVector {
     }
 }
 
-/**
- * Full-Screen All Apps Drawer showing all sideloaded APKs and built-in TV apps with their real default banners/icons.
- * Lets the user select which apps are displayed on the Home screen under APPS ("Select Home Apps" mode),
- * set any app (e.g. Movie Box Pro) as the Hero Tile ("Set Hero App" mode), or launch any app immediately.
- */
+/** All apps owns a separate window so directional focus cannot escape to Home. */
 @Composable
 fun B2AllAppsOverlayModal(
     installedApps: List<InstalledTvApp>,
+    initialHomePackages: List<String>,
+    isSaving: Boolean,
     onAppClick: (InstalledTvApp) -> Unit,
-    onTogglePinApp: (InstalledTvApp) -> Unit,
+    onConfirmHomeApps: (List<String>) -> Unit,
     onSetHeroApp: (InstalledTvApp) -> Unit,
     onClose: () -> Unit
 ) {
-    var mode by remember { mutableStateOf("LAUNCH") } // LAUNCH, PIN, HERO
+    var mode by remember { mutableStateOf("LAUNCH") }
+    var draftPackages by remember { mutableStateOf(initialHomePackages) }
+    val firstAppFocusRequester = remember { FocusRequester() }
     val closeFocusRequester = remember { FocusRequester() }
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val firstPackage = installedApps.firstOrNull()?.packageName
 
-    LaunchedEffect(Unit) {
-        runCatching { closeFocusRequester.requestFocus() }
+    LaunchedEffect(firstPackage, mode) {
+        if (firstPackage != null) gridState.scrollToItem(0)
+        androidx.compose.runtime.withFrameNanos { }
+        if (firstPackage != null) firstAppFocusRequester.requestFocus()
+        else closeFocusRequester.requestFocus()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.86f))
-            .padding(horizontal = 48.dp, vertical = 32.dp)
+    androidx.compose.ui.window.Popup(
+        onDismissRequest = { if (!isSaving) onClose() },
+        properties = androidx.compose.ui.window.PopupProperties(
+            focusable = true,
+            clippingEnabled = false,
+            dismissOnClickOutside = false
+        )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(24.dp))
+            modifier = Modifier.fillMaxSize()
                 .background(B2QuickSettingsSurface)
-                .padding(28.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "All Installed Apps & APKs (${installedApps.size})",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = B2MainText
-                    )
-                    Text(
-                        text = when (mode) {
-                            "PIN" -> "Select Home Apps: Press OK on any app to add/remove it from the Home screen APPS row"
-                            "HERO" -> "Set Hero App: Press OK on any app (e.g. Movie Box Pro) to set it as the main Hero Tile"
-                            else -> "Press OK on any app to open it, or click 'Select Home Apps' to choose which apps appear on Home"
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = if (mode == "LAUNCH") B2QuietText else B2Accent
-                    )
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TvFocusableSurface(
-                        itemId = "all_apps_pin_mode_btn",
-                        shape = RoundedCornerShape(12.dp),
-                        restingColor = if (mode == "PIN") B2Accent else B2TileSurface,
-                        focusedColor = if (mode == "PIN") B2Accent else B2RaisedSurface,
-                        onClick = { mode = if (mode == "PIN") "LAUNCH" else "PIN" },
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (mode == "PIN") Icons.Outlined.Check else Icons.Outlined.PushPin,
-                                contentDescription = "Select Home Apps",
-                                tint = if (mode == "PIN") B2AccentContent else B2MainText,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = if (mode == "PIN") "Done Selecting" else "Select Home Apps",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                                color = if (mode == "PIN") B2AccentContent else B2MainText
-                            )
-                        }
+            Text(
+                text = when (mode) {
+                    "SELECT" -> "Select Home apps (${draftPackages.size})"
+                    "HERO" -> "Choose featured app"
+                    else -> "All apps (${installedApps.size})"
+                },
+                style = MaterialTheme.typography.headlineMedium,
+                color = B2MainText
+            )
+            Text(
+                text = when (mode) {
+                    "SELECT" -> "OK toggles HOME. Confirm saves; Cancel or Back discards. Extra apps scroll on Home."
+                    "HERO" -> "Press OK on an app to feature it on Home."
+                    else -> "Press OK to launch an app. Select Home apps to change your Home row."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = B2QuietText
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (mode == "SELECT") {
+                    AllAppsAction("all_apps_confirm", if (isSaving) "Saving..." else "Confirm") {
+                        if (!isSaving) onConfirmHomeApps(draftPackages)
                     }
-
-                    TvFocusableSurface(
-                        itemId = "all_apps_hero_mode_btn",
-                        shape = RoundedCornerShape(12.dp),
-                        restingColor = if (mode == "HERO") B2Accent else B2TileSurface,
-                        focusedColor = if (mode == "HERO") B2Accent else B2RaisedSurface,
-                        onClick = { mode = if (mode == "HERO") "LAUNCH" else "HERO" },
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.StarOutline,
-                                contentDescription = "Set Hero App",
-                                tint = if (mode == "HERO") B2AccentContent else B2MainText,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = if (mode == "HERO") "Cancel Hero Pick" else "Set Hero App",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                                color = if (mode == "HERO") B2AccentContent else B2MainText
-                            )
-                        }
+                    AllAppsAction("all_apps_cancel", "Cancel", closeFocusRequester) {
+                        if (!isSaving) onClose()
                     }
-
-                    TvFocusableSurface(
-                        itemId = "all_apps_close_btn",
-                        shape = RoundedCornerShape(12.dp),
-                        restingColor = B2TileSurface,
-                        focusedColor = B2RaisedSurface,
-                        focusRequester = closeFocusRequester,
-                        onClick = onClose,
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(horizontal = 18.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Back to Home",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                                color = B2MainText
-                            )
-                        }
+                } else {
+                    AllAppsAction("all_apps_select", "Select Home apps") {
+                        draftPackages = initialHomePackages
+                        mode = "SELECT"
                     }
+                    AllAppsAction("all_apps_hero", if (mode == "HERO") "Cancel hero pick" else "Set hero app") {
+                        mode = if (mode == "HERO") "LAUNCH" else "HERO"
+                    }
+                    AllAppsAction("all_apps_close", "Back to Home", closeFocusRequester, onClose)
                 }
             }
-
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 152.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(6.dp),
+                state = gridState,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                items(
-                    items = installedApps,
-                    key = { it.packageName }
-                ) { app ->
+                items(installedApps, key = { it.packageName }) { app ->
                     DynamicInstalledAppTile(
-                        app = app,
+                        app = app.copy(isPinned = if (mode == "SELECT") {
+                            app.packageName in draftPackages
+                        } else app.packageName in initialHomePackages),
                         showPinBadge = true,
+                        focusRequester = if (app.packageName == firstPackage) firstAppFocusRequester else null,
                         onClick = {
-                            when (mode) {
-                                "PIN" -> onTogglePinApp(app)
-                                "HERO" -> {
-                                    onSetHeroApp(app)
-                                    mode = "LAUNCH"
-                                }
+                            if (!isSaving) when (mode) {
+                                "SELECT" -> draftPackages = if (app.packageName in draftPackages) {
+                                    draftPackages - app.packageName
+                                } else draftPackages + app.packageName
+                                "HERO" -> onSetHeroApp(app)
                                 else -> onAppClick(app)
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(96.dp)
+                        modifier = Modifier.fillMaxWidth().height(96.dp)
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AllAppsAction(
+    id: String,
+    label: String,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit
+) {
+    TvFocusableSurface(
+        itemId = id,
+        itemLabel = label,
+        shape = RoundedCornerShape(12.dp),
+        focusRequester = focusRequester,
+        onClick = onClick,
+        modifier = Modifier.height(44.dp),
+        focusScale = 1.03f
+    ) {
+        Box(Modifier.fillMaxHeight().padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+            Text(label, color = B2MainText, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

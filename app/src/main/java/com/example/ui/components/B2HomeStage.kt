@@ -531,10 +531,13 @@ fun B2DynamicAppsRowSection(
     isLoading: Boolean,
     onAppClick: (InstalledTvApp) -> Unit,
     onAllAppsClick: () -> Unit,
+    allAppsFocusRequester: FocusRequester,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    hasSavedHomeSelection: Boolean,
     modifier: Modifier = Modifier
 ) {
     val pinnedOnly = installedApps.filter { it.isPinned }
-    val rowApps = if (pinnedOnly.isNotEmpty()) {
+    val rowApps = if (hasSavedHomeSelection || pinnedOnly.isNotEmpty()) {
         pinnedOnly
     } else {
         installedApps.take(6)
@@ -551,6 +554,7 @@ fun B2DynamicAppsRowSection(
         )
 
         LazyRow(
+            state = listState,
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(vertical = 2.dp)
@@ -572,6 +576,7 @@ fun B2DynamicAppsRowSection(
             item(key = "app_all_apps_dashed") {
                 TvFocusableSurface(
                     itemId = "app_all_apps",
+                    focusRequester = allAppsFocusRequester,
                     shape = RoundedCornerShape(16.dp),
                     restingColor = Color.Transparent,
                     focusedColor = B2RaisedSurface,
@@ -622,11 +627,13 @@ fun DynamicInstalledAppTile(
     app: InstalledTvApp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    showPinBadge: Boolean = false
+    showPinBadge: Boolean = false,
+    focusRequester: FocusRequester? = null
 ) {
     val shape = RoundedCornerShape(16.dp)
     TvFocusableSurface(
         itemId = app.id,
+        focusRequester = focusRequester,
         shape = shape,
         restingColor = B2TileSurface,
         focusedColor = B2RaisedSurface,
