@@ -26,7 +26,9 @@ class BigDogHomeAccessibilityService : AccessibilityService() {
         if (event == null) return
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val pkg = event.packageName?.toString() ?: return
-            if (pkg in STOCK_LAUNCHER_PACKAGES) {
+            val isFallbackHome = pkg == "com.android.tv.settings" &&
+                event.className?.toString() == "com.android.tv.settings.system.FallbackHome"
+            if (pkg in STOCK_LAUNCHER_PACKAGES || isFallbackHome) {
                 Log.i(TAG, "Detected stock launcher window ($pkg), redirecting to BigDog Launcher.")
                 bringLauncherToFront(reason = "stock_window:$pkg")
             }

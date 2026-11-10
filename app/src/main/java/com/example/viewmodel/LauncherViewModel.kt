@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class LauncherUiState(
+    val homeReturnSequence: Long = 0L,
     val showLeftSidebar: Boolean = true,
     val selectedRail: RailDestination = RailDestination.HOME,
     val selectedWatchTab: WatchTab = WatchTab.CONTINUE,
@@ -204,6 +205,10 @@ class LauncherViewModel : ViewModel() {
                 showToast(context, "Unable to save sidebar preference")
             }
         }
+    }
+
+    fun returnToHome() {
+        _uiState.update { it.returnedHome() }
     }
 
     fun onSideRailClicked(context: Context, destination: RailDestination) {

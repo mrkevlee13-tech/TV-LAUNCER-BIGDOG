@@ -116,6 +116,13 @@ class MainActivity : ComponentActivity() {
         viewModel.refreshDynamicSystemData(this)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Home, app launchers and the existing Home interceptor all reuse this singleTask.
+        viewModel.returnToHome()
+    }
+
     override fun onDestroy() {
         runCatching { unregisterReceiver(packageChangeReceiver) }
         runCatching { unregisterReceiver(hardwareReceiver) }
@@ -150,6 +157,12 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_HOME) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                viewModel.returnToHome()
+            }
+            return true
+        }
         if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_MENU) {
             viewModel.setQuickSettingsOpen(!viewModel.uiState.value.isQuickSettingsOpen)
             return true
@@ -170,10 +183,12 @@ fun BigDogLauncherScreen(
     val railAllAppsFocusRequester = remember { FocusRequester() }
     val homeAllAppsFocusRequester = remember { FocusRequester() }
     val homeAppsListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var handledHomeReturn by remember { androidx.compose.runtime.mutableLongStateOf(uiState.homeReturnSequence) }
+    val returningHome = handledHomeReturn != uiState.homeReturnSequence
     var allAppsOpenedFromRail by remember { androidx.compose.runtime.mutableStateOf(false) }
     var allAppsWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(uiState.isAllAppsOverlayOpen) {
-        if (allAppsWasOpen && !uiState.isAllAppsOverlayOpen) {
+    LaunchedEffect(uiState.isAllAppsOverlayOpen, uiState.homeReturnSequence) {
+        if (allAppsWasOpen && !uiState.isAllAppsOverlayOpen && !returningHome) {
             if (allAppsOpenedFromRail && uiState.showLeftSidebar) {
                 androidx.compose.runtime.withFrameNanos { }
                 railAllAppsFocusRequester.requestFocus()
@@ -189,6 +204,18 @@ fun BigDogLauncherScreen(
         allAppsWasOpen = uiState.isAllAppsOverlayOpen
     }
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(uiState.homeReturnSequence) {
+        if (returningHome) {
+            scrollState.scrollTo(0)
+            homeAppsListState.scrollToItem(0)
+            // Allow dismissed popup windows and the home layout to release/attach focus.
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            heroFocusRequester.requestFocus()
+            handledHomeReturn = uiState.homeReturnSequence
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -211,16 +238,16 @@ fun BigDogLauncherScreen(
     }
 
     var wallpaperWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(uiState.selectedRail) {
-        if (wallpaperWasOpen && uiState.selectedRail == RailDestination.HOME) {
+    LaunchedEffect(uiState.selectedRail, uiState.homeReturnSequence) {
+        if (wallpaperWasOpen && uiState.selectedRail == RailDestination.HOME && !returningHome) {
             androidx.compose.runtime.withFrameNanos { }
             heroFocusRequester.requestFocus()
         }
         wallpaperWasOpen = uiState.selectedRail == RailDestination.WALLPAPER
     }
     var inputWasFullScreen by remember { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(uiState.isInputFullScreen) {
-        if (inputWasFullScreen && !uiState.isInputFullScreen) {
+    LaunchedEffect(uiState.isInputFullScreen, uiState.homeReturnSequence) {
+        if (inputWasFullScreen && !uiState.isInputFullScreen && !returningHome) {
             androidx.compose.runtime.withFrameNanos { }
             heroFocusRequester.requestFocus()
         }
@@ -235,8 +262,9 @@ fun BigDogLauncherScreen(
 
     // Restore focus to a visible control after settings, including when the rail is hidden.
     var settingsWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(uiState.isQuickSettingsOpen) {
+    LaunchedEffect(uiState.isQuickSettingsOpen, uiState.homeReturnSequence) {
         if (!uiState.isQuickSettingsOpen && settingsWasOpen &&
+            !returningHome &&
             uiState.selectedRail != RailDestination.WALLPAPER &&
             !uiState.isSearchOverlayOpen
         ) {
