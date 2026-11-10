@@ -43,15 +43,15 @@ import com.example.ui.theme.B2TileSurface
 /**
  * Core Android TV D-Pad Focusable Surface following the B2 Design Spec:
  * - Scales by 1.06x when focused using a lightweight spring animation
- * - Draws a crisp 3dp #8FD6B0 accent focus ring when focused
- * - Supports both D-Pad Center/Enter keys on physical remotes and pointer clicks in the emulator
+ * - Draws a crisp #8FD6B0 accent focus ring when focused
+ * - Supports both D-Pad Center/Enter keys on physical remotes and pointer clicks
  */
 @Composable
 fun TvFocusableSurface(
     itemId: String,
-    itemLabel: String,
+    itemLabel: String = itemId,
     shape: Shape,
-    onFocused: (String, String) -> Unit,
+    onFocused: (String, String) -> Unit = { _, _ -> },
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     restingColor: Color = B2TileSurface,

@@ -22,10 +22,10 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SettingsInputComponent
 import androidx.compose.material.icons.outlined.SmartDisplay
-import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Icon
@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.example.model.RailDestination
 import com.example.ui.theme.B2Accent
 import com.example.ui.theme.B2MainText
+import com.example.ui.theme.B2NotConnectedDot
 import com.example.ui.theme.B2QuietText
 import com.example.ui.theme.B2RaisedSurface
 import com.example.ui.theme.B2SideRail
@@ -60,15 +61,13 @@ import kotlinx.coroutines.delay
  * B2 Side Rail:
  * - 88dp wide on #0B0D0F
  * - Buttons are 52x52dp with a 24dp icon: Home, Movies, All apps, Inputs at the top
- *   and Search, Settings at the bottom.
+ *   and Search, Wallpaper, Settings at the bottom.
  * - Active item has a raised background (#1F252B) and a 4dp wide accent bar (#8FD6B0).
  */
 @Composable
 fun B2SideRail(
     selectedDestination: RailDestination,
     onSelectDestination: (RailDestination) -> Unit,
-    onItemFocused: (String, String) -> Unit,
-    onOpenBrandInspector: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val topItems = listOf(
@@ -79,6 +78,7 @@ fun B2SideRail(
     )
     val bottomItems = listOf(
         RailDestination.SEARCH,
+        RailDestination.WALLPAPER,
         RailDestination.SETTINGS
     )
 
@@ -86,7 +86,7 @@ fun B2SideRail(
         modifier = modifier
             .width(88.dp)
             .fillMaxHeight()
-            .background(B2SideRail)
+            .background(B2SideRail.copy(alpha = 0.94f))
             .padding(vertical = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -98,12 +98,10 @@ fun B2SideRail(
             // Top BigDog Brand Ring (matches top-left green ring in B2 mockup)
             TvFocusableSurface(
                 itemId = "rail_brand_logo",
-                itemLabel = "BigDog Launcher · ADB & Milestone 1 Inspector",
                 shape = CircleShape,
                 restingColor = Color.Transparent,
                 focusedColor = B2RaisedSurface,
-                onFocused = onItemFocused,
-                onClick = onOpenBrandInspector,
+                onClick = { onSelectDestination(RailDestination.HOME) },
                 modifier = Modifier.size(44.dp)
             ) {
                 Box(
@@ -121,7 +119,6 @@ fun B2SideRail(
                     destination = destination,
                     isSelected = selectedDestination == destination,
                     icon = railIconFor(destination, isSelected = selectedDestination == destination),
-                    onFocused = onItemFocused,
                     onClick = { onSelectDestination(destination) }
                 )
             }
@@ -129,14 +126,13 @@ fun B2SideRail(
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             bottomItems.forEach { destination ->
                 SideRailButton(
                     destination = destination,
                     isSelected = selectedDestination == destination,
                     icon = railIconFor(destination, isSelected = selectedDestination == destination),
-                    onFocused = onItemFocused,
                     onClick = { onSelectDestination(destination) }
                 )
             }
@@ -149,7 +145,6 @@ private fun SideRailButton(
     destination: RailDestination,
     isSelected: Boolean,
     icon: ImageVector,
-    onFocused: (String, String) -> Unit,
     onClick: () -> Unit
 ) {
     Box(
@@ -158,7 +153,6 @@ private fun SideRailButton(
             .height(52.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 4dp wide accent bar on the left edge when active
         if (isSelected) {
             Box(
                 modifier = Modifier
@@ -172,11 +166,9 @@ private fun SideRailButton(
 
         TvFocusableSurface(
             itemId = destination.id,
-            itemLabel = "Side Rail · ${destination.label}",
             shape = RoundedCornerShape(16.dp),
             restingColor = if (isSelected) B2RaisedSurface else Color.Transparent,
             focusedColor = B2RaisedSurface,
-            onFocused = onFocused,
             onClick = onClick,
             modifier = Modifier.size(52.dp)
         ) { isFocused ->
@@ -199,6 +191,7 @@ private fun railIconFor(destination: RailDestination, isSelected: Boolean): Imag
         RailDestination.ALL_APPS -> Icons.Outlined.Apps
         RailDestination.INPUTS -> Icons.Outlined.SettingsInputComponent
         RailDestination.SEARCH -> Icons.Outlined.Search
+        RailDestination.WALLPAPER -> Icons.Outlined.Wallpaper
         RailDestination.SETTINGS -> Icons.Outlined.Tune
     }
 }
@@ -207,20 +200,17 @@ private fun railIconFor(destination: RailDestination, isSelected: Boolean): Imag
  * B2 Header Bar:
  * - Left: Clock at 36sp (Space Grotesk) and date at 15sp in quiet text (#9AA3AD).
  * - Right: Wi-Fi pill 44dp tall showing network name, then round 44dp buttons for
- *   Bluetooth, Cast, and Quick settings (plus an ADB/D-Pad status button for Milestone 1 testing).
+ *   Bluetooth, Cast, and Quick settings.
  */
 @Composable
 fun B2HeaderBar(
     wifiDisplayName: String,
-    isAccessibilityEnabled: Boolean,
-    onItemFocused: (String, String) -> Unit,
     onOpenSettingAction: (String, String) -> Unit,
     onOpenQuickSettings: () -> Unit,
-    onOpenAdbInspector: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentTimeText by remember { mutableStateOf("19:30") }
-    var currentDateText by remember { mutableStateOf("Tuesday 10 November") }
+    var currentTimeText by remember { mutableStateOf("") }
+    var currentDateText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -233,12 +223,13 @@ fun B2HeaderBar(
         }
     }
 
+    val isWifiConnected = wifiDisplayName != "Disconnected"
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: Clock (36sp Space Grotesk) + Date (15sp Inter in quiet text)
         Row(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -256,52 +247,17 @@ fun B2HeaderBar(
             )
         }
 
-        // Right: Wi-Fi pill (44dp tall) + round 44dp buttons for Bluetooth, Cast, Quick Settings
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Milestone 1 / Xiaomi Home Override Diagnostic Pill
-            TvFocusableSurface(
-                itemId = "header_adb_setup_pill",
-                itemLabel = "Xiaomi Home Override & D-Pad Diagnostic",
-                shape = RoundedCornerShape(22.dp),
-                restingColor = B2TileSurface,
-                focusedColor = B2RaisedSurface,
-                onFocused = onItemFocused,
-                onClick = onOpenAdbInspector,
-                modifier = Modifier.height(44.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Terminal,
-                        contentDescription = "ADB Setup & D-Pad Status",
-                        tint = B2Accent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = if (isAccessibilityEnabled) "Home Override: ON" else "ADB Setup",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                        color = if (isAccessibilityEnabled) B2Accent else B2QuietText
-                    )
-                }
-            }
-
             // Wi-Fi Pill (44dp tall)
             TvFocusableSurface(
                 itemId = "header_wifi_pill",
-                itemLabel = "Header · Wi-Fi ($wifiDisplayName)",
                 shape = RoundedCornerShape(22.dp),
                 restingColor = B2TileSurface,
                 focusedColor = B2RaisedSurface,
-                onFocused = onItemFocused,
-                onClick = { onOpenSettingAction(Settings.ACTION_WIFI_SETTINGS, "Wi-Fi Settings") },
+                onClick = { onOpenSettingAction(Settings.ACTION_WIFI_SETTINGS, "Wi-Fi") },
                 modifier = Modifier.height(44.dp)
             ) {
                 Row(
@@ -314,7 +270,7 @@ fun B2HeaderBar(
                     Icon(
                         imageVector = Icons.Outlined.Wifi,
                         contentDescription = "Wi-Fi",
-                        tint = B2Accent,
+                        tint = if (isWifiConnected) B2Accent else B2NotConnectedDot,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
@@ -328,31 +284,28 @@ fun B2HeaderBar(
             // Round 44dp Bluetooth Button
             HeaderCircleButton(
                 id = "header_bluetooth_button",
-                label = "Header · Bluetooth",
+                label = "Bluetooth",
                 icon = Icons.Outlined.Bluetooth,
-                onFocused = onItemFocused,
                 onClick = {
-                    onOpenSettingAction(Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth Settings")
+                    onOpenSettingAction(Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth")
                 }
             )
 
             // Round 44dp Cast Button
             HeaderCircleButton(
                 id = "header_cast_button",
-                label = "Header · Cast",
+                label = "Cast",
                 icon = Icons.Outlined.Cast,
-                onFocused = onItemFocused,
                 onClick = {
-                    onOpenSettingAction(Settings.ACTION_CAST_SETTINGS, "Cast Settings")
+                    onOpenSettingAction(Settings.ACTION_CAST_SETTINGS, "Cast")
                 }
             )
 
             // Round 44dp Quick Settings Button
             HeaderCircleButton(
                 id = "header_quick_settings_button",
-                label = "Header · Quick settings",
+                label = "Quick settings",
                 icon = Icons.Outlined.Tune,
-                onFocused = onItemFocused,
                 onClick = onOpenQuickSettings
             )
         }
@@ -364,16 +317,13 @@ private fun HeaderCircleButton(
     id: String,
     label: String,
     icon: ImageVector,
-    onFocused: (String, String) -> Unit,
     onClick: () -> Unit
 ) {
     TvFocusableSurface(
         itemId = id,
-        itemLabel = label,
         shape = CircleShape,
         restingColor = B2TileSurface,
         focusedColor = B2RaisedSurface,
-        onFocused = onFocused,
         onClick = onClick,
         modifier = Modifier.size(44.dp)
     ) {

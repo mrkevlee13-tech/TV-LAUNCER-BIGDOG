@@ -2,10 +2,12 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -15,18 +17,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LiveTv
-import androidx.compose.material.icons.outlined.PlayCircleOutline
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.SmartDisplay
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,12 +39,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.AppTileItem
+import com.example.model.InstalledTvApp
 import com.example.model.TvInputPillItem
 import com.example.model.WatchItem
 import com.example.model.WatchTab
@@ -61,22 +62,24 @@ import com.example.ui.theme.HeroGradientStart
 
 /**
  * Hero Tile + Watch Panel Row (Middle shelf of the B2 home screen):
- * - Left: Hero tile (440x280dp proportion, corner 20dp, green gradient, 3dp accent focus ring,
- *   Movie Box Pro at 30sp, subtitle, and round 52dp accent play button).
- * - Right: Watch panel with 30dp tall pill tabs (Continue, Next episode, To Watch) over a
- *   3x2 grid of 16:9 thumbnails (corner 12dp, bottom shade, title at 13sp, source app at 11sp,
- *   and 3dp tall accent progress bar).
+ * - Left: Hero tile (440x280dp, corner 20dp, green gradient + real installed app banner/icon
+ *   when present, 3dp accent focus ring, title at 30sp, subtitle, and round 52dp accent play button).
+ * - Right: Customizable Watch panel (Continue / Last Played, Next episode, To Watch / Favorites)
+ *   over a 3x2 grid of 16:9 thumbnails using the default app thumbnails already installed on the TV.
  */
 @Composable
 fun B2HeroAndWatchShelf(
+    heroApp: InstalledTvApp?,
+    heroDisplayTitle: String,
+    heroDisplaySubtitle: String,
     selectedTab: WatchTab,
     watchItems: List<WatchItem>,
     heroFocusRequester: FocusRequester,
     onSelectTab: (WatchTab) -> Unit,
     onHeroClick: () -> Unit,
+    onChangeHeroAppClick: () -> Unit,
     onWatchItemClick: (WatchItem) -> Unit,
-    onOpenAddToWatch: () -> Unit,
-    onItemFocused: (String, String) -> Unit,
+    onOpenCustomizeWatchShelf: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -85,24 +88,24 @@ fun B2HeroAndWatchShelf(
             .height(280.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Hero Tile: 440x280dp on 1280x720 baseline
         B2HeroTile(
+            heroApp = heroApp,
+            title = heroDisplayTitle,
+            subtitle = heroDisplaySubtitle,
             focusRequester = heroFocusRequester,
-            onFocused = onItemFocused,
             onClick = onHeroClick,
+            onChangeHeroAppClick = onChangeHeroAppClick,
             modifier = Modifier
                 .width(440.dp)
                 .fillMaxHeight()
         )
 
-        // Watch Panel: fills remaining width to the right of the Hero
         B2WatchPanel(
             selectedTab = selectedTab,
             watchItems = watchItems,
             onSelectTab = onSelectTab,
             onWatchItemClick = onWatchItemClick,
-            onOpenAddToWatch = onOpenAddToWatch,
-            onItemFocused = onItemFocused,
+            onOpenCustomizeWatchShelf = onOpenCustomizeWatchShelf,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
@@ -112,9 +115,12 @@ fun B2HeroAndWatchShelf(
 
 @Composable
 fun B2HeroTile(
+    heroApp: InstalledTvApp?,
+    title: String,
+    subtitle: String,
     focusRequester: FocusRequester,
-    onFocused: (String, String) -> Unit,
     onClick: () -> Unit,
+    onChangeHeroAppClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val heroShape = RoundedCornerShape(20.dp)
@@ -124,70 +130,142 @@ fun B2HeroTile(
         end = Offset(900f, 600f)
     )
 
-    TvFocusableSurface(
-        itemId = "hero_movie_box_pro",
-        itemLabel = "Hero Tile · Movie Box Pro",
-        shape = heroShape,
-        restingBrush = heroBrush,
-        focusScale = 1.03f,
-        focusBorderWidth = 3.dp,
-        restingBorder = BorderStroke(2.dp, B2Accent.copy(alpha = 0.55f)),
-        focusRequester = focusRequester,
-        onFocused = onFocused,
-        onClick = onClick,
-        modifier = modifier
-    ) {
-        // Decorative translucent radial circles on the right side matching B2 mockup
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                color = HeroCircleOverlay,
-                radius = size.height * 0.62f,
-                center = Offset(size.width * 0.82f, size.height * 0.34f)
-            )
-            drawCircle(
-                color = HeroCircleOverlay,
-                radius = size.height * 0.36f,
-                center = Offset(size.width * 0.72f, size.height * 0.65f)
-            )
-        }
-
-        // Bottom content: Title at 30sp, Subtitle, and round 52dp accent play button
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(horizontal = 26.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom
+    Box(modifier = modifier) {
+        TvFocusableSurface(
+            itemId = "hero_movie_box_pro",
+            shape = heroShape,
+            restingBrush = heroBrush,
+            focusScale = 1.03f,
+            focusBorderWidth = 3.dp,
+            restingBorder = BorderStroke(2.dp, B2Accent.copy(alpha = 0.55f)),
+            focusRequester = focusRequester,
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Movie Box Pro",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = B2MainText
+            if (heroApp?.bannerBitmap != null) {
+                Image(
+                    bitmap = heroApp.bannerBitmap,
+                    contentDescription = heroApp.name,
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.42f,
+                    modifier = Modifier.fillMaxSize()
                 )
-                Text(
-                    text = "Open your library · 6 titles waiting",
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                    color = B2MainText.copy(alpha = 0.78f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    HeroGradientStart.copy(alpha = 0.45f),
+                                    HeroGradientEnd.copy(alpha = 0.92f)
+                                )
+                            )
+                        )
+                )
+            } else {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(
+                        color = HeroCircleOverlay,
+                        radius = size.height * 0.62f,
+                        center = Offset(size.width * 0.82f, size.height * 0.34f)
+                    )
+                    drawCircle(
+                        color = HeroCircleOverlay,
+                        radius = size.height * 0.36f,
+                        center = Offset(size.width * 0.72f, size.height * 0.65f)
+                    )
+                }
+            }
+
+            if (heroApp?.iconBitmap != null) {
+                Image(
+                    bitmap = heroApp.iconBitmap,
+                    contentDescription = heroApp.name,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(24.dp)
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
             }
 
-            // Round 52dp accent play button
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(B2Accent),
-                contentAlignment = Alignment.Center
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 26.dp, vertical = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = B2MainText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                        color = B2MainText.copy(alpha = 0.78f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(B2Accent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = "Launch $title",
+                        tint = B2AccentContent,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
+
+        // Top-right button to customize which installed APK is featured on the Hero Tile
+        TvFocusableSurface(
+            itemId = "hero_change_app_btn",
+            shape = RoundedCornerShape(14.dp),
+            restingColor = Color.Black.copy(alpha = 0.38f),
+            focusedColor = B2RaisedSurface,
+            onClick = onChangeHeroAppClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(14.dp)
+                .height(28.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Launch Movie Box Pro",
-                    tint = B2AccentContent,
-                    modifier = Modifier.size(28.dp)
+                    imageVector = Icons.Outlined.SwapHoriz,
+                    contentDescription = "Change featured Hero app",
+                    tint = B2MainText.copy(alpha = 0.85f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = "Change app",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = B2MainText.copy(alpha = 0.85f)
                 )
             }
         }
@@ -200,8 +278,7 @@ private fun B2WatchPanel(
     watchItems: List<WatchItem>,
     onSelectTab: (WatchTab) -> Unit,
     onWatchItemClick: (WatchItem) -> Unit,
-    onOpenAddToWatch: () -> Unit,
-    onItemFocused: (String, String) -> Unit,
+    onOpenCustomizeWatchShelf: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val filteredItems = watchItems.filter { it.tab == selectedTab }.take(6)
@@ -210,7 +287,6 @@ private fun B2WatchPanel(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Top row: Three 30dp tall pill tabs + "From your apps" / "+ Add to Watch" action
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -226,11 +302,9 @@ private fun B2WatchPanel(
                     val isSelected = selectedTab == tab
                     TvFocusableSurface(
                         itemId = tab.id,
-                        itemLabel = "Watch Tab · ${tab.title}",
                         shape = RoundedCornerShape(15.dp),
                         restingColor = if (isSelected) B2Accent else B2TileSurface,
                         focusedColor = if (isSelected) B2Accent else B2RaisedSurface,
-                        onFocused = onItemFocused,
                         onClick = { onSelectTab(tab) },
                         modifier = Modifier.height(30.dp)
                     ) {
@@ -252,36 +326,33 @@ private fun B2WatchPanel(
                     }
                 }
 
-                if (selectedTab == WatchTab.TO_WATCH) {
-                    TvFocusableSurface(
-                        itemId = "watch_add_manual_button",
-                        itemLabel = "Watch Panel · Add Manual To Watch Item",
-                        shape = RoundedCornerShape(15.dp),
-                        restingColor = B2TileSurface,
-                        focusedColor = B2RaisedSurface,
-                        onFocused = onItemFocused,
-                        onClick = onOpenAddToWatch,
-                        modifier = Modifier.height(30.dp)
+                // Customize / Add item to the current tab (Continue, Next episode, or To Watch)
+                TvFocusableSurface(
+                    itemId = "watch_customize_button",
+                    shape = RoundedCornerShape(15.dp),
+                    restingColor = B2TileSurface,
+                    focusedColor = B2RaisedSurface,
+                    onClick = onOpenCustomizeWatchShelf,
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Add,
-                                contentDescription = "Add To Watch title",
-                                tint = B2Accent,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Add title",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                color = B2Accent
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = "Add to ${selectedTab.title}",
+                            tint = B2Accent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Add to ${selectedTab.title}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = B2Accent
+                        )
                     }
                 }
             }
@@ -293,7 +364,6 @@ private fun B2WatchPanel(
             )
         }
 
-        // 3 columns x 2 rows of 16:9 thumbnails, corner 12dp
         val row1Items = filteredItems.take(3)
         val row2Items = filteredItems.drop(3).take(3)
 
@@ -304,7 +374,6 @@ private fun B2WatchPanel(
             WatchThumbnailRow(
                 items = row1Items,
                 onWatchItemClick = onWatchItemClick,
-                onItemFocused = onItemFocused,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -312,7 +381,6 @@ private fun B2WatchPanel(
             WatchThumbnailRow(
                 items = row2Items,
                 onWatchItemClick = onWatchItemClick,
-                onItemFocused = onItemFocused,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -325,7 +393,6 @@ private fun B2WatchPanel(
 private fun WatchThumbnailRow(
     items: List<WatchItem>,
     onWatchItemClick: (WatchItem) -> Unit,
-    onItemFocused: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -337,7 +404,6 @@ private fun WatchThumbnailRow(
             if (item != null) {
                 WatchThumbnailCard(
                     item = item,
-                    onFocused = onItemFocused,
                     onClick = { onWatchItemClick(item) },
                     modifier = Modifier
                         .weight(1f)
@@ -357,7 +423,6 @@ private fun WatchThumbnailRow(
 @Composable
 private fun WatchThumbnailCard(
     item: WatchItem,
-    onFocused: (String, String) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -368,15 +433,33 @@ private fun WatchThumbnailCard(
 
     TvFocusableSurface(
         itemId = item.id,
-        itemLabel = "${item.title} (${item.subtitle})",
         shape = cardShape,
-        restingBrush = thumbBrush,
+        restingBrush = if (item.bannerBitmap == null) thumbBrush else null,
+        restingColor = B2TileSurface,
         focusScale = 1.05f,
-        onFocused = onFocused,
         onClick = onClick,
         modifier = modifier
     ) {
-        // Subtle bottom gradient scrim for legible text
+        if (item.bannerBitmap != null) {
+            Image(
+                bitmap = item.bannerBitmap,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (item.iconBitmap != null) {
+            Image(
+                bitmap = item.iconBitmap,
+                contentDescription = item.title,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -384,7 +467,7 @@ private fun WatchThumbnailCard(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.55f)
+                            Color.Black.copy(alpha = 0.72f)
                         )
                     )
                 )
@@ -416,7 +499,6 @@ private fun WatchThumbnailCard(
             )
         }
 
-        // 3dp tall accent progress bar along the bottom edge
         if (item.progress > 0f) {
             Box(
                 modifier = Modifier
@@ -437,19 +519,27 @@ private fun WatchThumbnailCard(
 }
 
 /**
- * B2 Apps Row:
- * - Label APPS at 12sp in capitals
- * - Seven tiles of 144x92dp (scaled fluidly across the row) on #1A1D21
- * - Each shows the app's own banner/icon and its name at 13sp
- * - The last tile, All apps, has a dashed outline.
+ * Dynamic B2 Apps Row:
+ * - Shows the user's selected Home apps (or top installed TV apps when none selected yet)
+ *   using each app's own default banner or icon already installed on the TV.
+ * - Clicking "All apps" opens the full list of all APKs and built-in TV apps where the user
+ *   can select which apps are displayed on the Home screen under APPS.
  */
 @Composable
-fun B2AppsRowSection(
-    apps: List<AppTileItem>,
-    onAppClick: (AppTileItem) -> Unit,
-    onItemFocused: (String, String) -> Unit,
+fun B2DynamicAppsRowSection(
+    installedApps: List<InstalledTvApp>,
+    isLoading: Boolean,
+    onAppClick: (InstalledTvApp) -> Unit,
+    onAllAppsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val pinnedOnly = installedApps.filter { it.isPinned }
+    val rowApps = if (pinnedOnly.isNotEmpty()) {
+        pinnedOnly
+    } else {
+        installedApps.take(6)
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -460,23 +550,35 @@ fun B2AppsRowSection(
             color = B2QuietText
         )
 
-        Row(
+        LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 2.dp)
         ) {
-            apps.forEach { app ->
-                val shape = RoundedCornerShape(16.dp)
-                TvFocusableSurface(
-                    itemId = app.id,
-                    itemLabel = "App Tile · ${app.name}",
-                    shape = shape,
-                    restingColor = if (app.isAllAppsCard) Color.Transparent else B2TileSurface,
-                    focusedColor = B2RaisedSurface,
-                    dashedOutlineCornerRadius = if (app.isAllAppsCard) 16.dp else null,
-                    onFocused = onItemFocused,
+            items(
+                items = rowApps,
+                key = { it.packageName }
+            ) { app ->
+                DynamicInstalledAppTile(
+                    app = app,
                     onClick = { onAppClick(app) },
                     modifier = Modifier
-                        .weight(1f)
+                        .width(144.dp)
+                        .height(92.dp)
+                )
+            }
+
+            // Trailing dashed "All apps" tile matching B2 spec (144x92dp)
+            item(key = "app_all_apps_dashed") {
+                TvFocusableSurface(
+                    itemId = "app_all_apps",
+                    shape = RoundedCornerShape(16.dp),
+                    restingColor = Color.Transparent,
+                    focusedColor = B2RaisedSurface,
+                    dashedOutlineCornerRadius = 16.dp,
+                    onClick = onAllAppsClick,
+                    modifier = Modifier
+                        .width(144.dp)
                         .height(92.dp)
                 ) {
                     Column(
@@ -490,21 +592,21 @@ fun B2AppsRowSection(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(app.iconBgColor),
+                                .background(B2TileSurface),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = appIconFor(app.id),
-                                contentDescription = app.name,
-                                tint = app.iconColor,
+                                imageVector = Icons.Outlined.Apps,
+                                contentDescription = "All apps",
+                                tint = B2QuietText,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = app.name,
+                            text = if (isLoading) "Loading..." else "All apps",
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                            color = if (app.isAllAppsCard) B2QuietText else B2MainText,
+                            color = B2QuietText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -515,29 +617,131 @@ fun B2AppsRowSection(
     }
 }
 
-private fun appIconFor(appId: String): ImageVector {
-    return when (appId) {
-        "app_vlc" -> Icons.Outlined.PlayCircleOutline
-        "app_smarttube" -> Icons.Outlined.SmartDisplay
-        "app_files" -> Icons.Outlined.Folder
-        "app_vpn" -> Icons.Outlined.Shield
-        "app_bilibili" -> Icons.Outlined.LiveTv
-        "app_browser" -> Icons.Outlined.Language
-        else -> Icons.Outlined.Apps
+@Composable
+fun DynamicInstalledAppTile(
+    app: InstalledTvApp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showPinBadge: Boolean = false
+) {
+    val shape = RoundedCornerShape(16.dp)
+    TvFocusableSurface(
+        itemId = app.id,
+        shape = shape,
+        restingColor = B2TileSurface,
+        focusedColor = B2RaisedSurface,
+        onClick = onClick,
+        modifier = modifier
+    ) {
+        if (app.bannerBitmap != null) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Image(
+                    bitmap = app.bannerBitmap,
+                    contentDescription = app.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.72f)
+                                )
+                            )
+                        )
+                )
+                Text(
+                    text = app.name,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
+                    color = B2MainText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (app.iconBitmap != null) {
+                    Image(
+                        bitmap = app.iconBitmap,
+                        contentDescription = app.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(B2RaisedSurface),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Tv,
+                            contentDescription = app.name,
+                            tint = B2Accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = app.name,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                    color = B2MainText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        if (showPinBadge && app.isPinned) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(B2Accent)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = "On Home",
+                    tint = B2AccentContent,
+                    modifier = Modifier.size(11.dp)
+                )
+                Text(
+                    text = "Home",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = B2AccentContent
+                )
+            }
+        }
     }
 }
 
-/**
- * B2 Inputs Row:
- * - Label INPUTS at 12sp in capitals
- * - Six pills 58dp tall: HDMI 1, HDMI 2, HDMI 3, AV, USB and Screen cast
- * - Each has a status dot (accent #8FD6B0 when connected, #4A525C when not) and a status line.
- */
 @Composable
 fun B2InputsRowSection(
     inputs: List<TvInputPillItem>,
     onInputClick: (TvInputPillItem) -> Unit,
-    onItemFocused: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -557,11 +761,9 @@ fun B2InputsRowSection(
             inputs.forEach { input ->
                 TvFocusableSurface(
                     itemId = input.id,
-                    itemLabel = "Input · ${input.label} (${input.status})",
                     shape = RoundedCornerShape(14.dp),
                     restingColor = B2TileSurface,
                     focusedColor = B2RaisedSurface,
-                    onFocused = onItemFocused,
                     onClick = { onInputClick(input) },
                     modifier = Modifier
                         .weight(1f)

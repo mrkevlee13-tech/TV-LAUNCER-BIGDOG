@@ -2,5 +2,7 @@
   "name": "BigDog Launcher",
   "description": "Custom ad-free Android TV launcher (B2) for Xiaomi TV with D-pad focus rings, Movie Box Pro hero shelf, and Home button interception.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -2,13 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Android TV Hardware Constraints: Disable touchscreen requirement & declare Leanback -->
+    <!-- Android TV Hardware Constraints: Explicitly disable touchscreen & require Leanback -->
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
     <uses-feature
         android:name="android.software.leanback"
         android:required="true" />
+    <uses-feature
+        android:name="android.software.live_tv"
+        android:required="false" />
 
     <!-- Network & Wi-Fi state inspection for header status pill -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -16,8 +19,16 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Package visibility queries for Android TV Leanback and sideloaded standard apps -->
+    <!-- Full package visibility so all sideloaded APKs (Movie Box Pro, etc.) & built-in TV apps appear in All Apps -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- Read Android TV Watch Next / Preview Program channels published by apps like Movie Box Pro & SmartTube -->
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
+
     <queries>
+        <package android:name="com.movieboxpro.android" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
@@ -25,6 +36,9 @@
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.media.tv.TvInputService" />
         </intent>
     </queries>
 

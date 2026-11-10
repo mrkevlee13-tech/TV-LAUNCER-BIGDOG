@@ -1,18 +1,15 @@
 package com.example.model
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import com.example.ui.theme.Thumb01End
 import com.example.ui.theme.Thumb01Start
 import com.example.ui.theme.Thumb02End
 import com.example.ui.theme.Thumb02Start
 import com.example.ui.theme.Thumb03End
 import com.example.ui.theme.Thumb03Start
-import com.example.ui.theme.Thumb04End
-import com.example.ui.theme.Thumb04Start
 import com.example.ui.theme.Thumb05End
 import com.example.ui.theme.Thumb05Start
-import com.example.ui.theme.Thumb06End
-import com.example.ui.theme.Thumb06Start
 
 enum class RailDestination(val id: String, val label: String) {
     HOME("rail_home", "Home"),
@@ -20,6 +17,7 @@ enum class RailDestination(val id: String, val label: String) {
     ALL_APPS("rail_all_apps", "All apps"),
     INPUTS("rail_inputs", "Inputs"),
     SEARCH("rail_search", "Search"),
+    WALLPAPER("rail_wallpaper", "Wallpaper"),
     SETTINGS("rail_settings", "Settings")
 }
 
@@ -29,6 +27,11 @@ enum class WatchTab(val id: String, val title: String) {
     TO_WATCH("tab_to_watch", "To Watch")
 }
 
+/**
+ * Represents a thumbnail card in the Watch Panel (Continue, Next episode, To Watch).
+ * Can be backed by a real installed TV app (with its actual bannerBitmap/iconBitmap)
+ * or a Watch Next / manual To Watch entry.
+ */
 data class WatchItem(
     val id: String,
     val title: String,
@@ -36,24 +39,45 @@ data class WatchItem(
     val progress: Float,
     val gradientStart: Color,
     val gradientEnd: Color,
-    val tab: WatchTab
+    val tab: WatchTab,
+    val targetPackage: String? = null,
+    val deepLinkUri: String? = null,
+    val bannerBitmap: ImageBitmap? = null,
+    val iconBitmap: ImageBitmap? = null,
+    val isManualEntry: Boolean = false
 )
 
-data class AppTileItem(
+/**
+ * Dynamically resolved application installed on the TV via PackageManager.
+ */
+data class InstalledTvApp(
     val id: String,
     val name: String,
     val packageName: String,
-    val iconColor: Color,
-    val iconBgColor: Color,
-    val isAllAppsCard: Boolean = false
+    val activityName: String,
+    val isLeanback: Boolean,
+    val bannerBitmap: ImageBitmap? = null,
+    val iconBitmap: ImageBitmap? = null,
+    val isPinned: Boolean = false,
+    val isSystemApp: Boolean = false
 )
+
+enum class HardwareInputType {
+    HDMI_1,
+    HDMI_2,
+    HDMI_3,
+    AV,
+    USB,
+    SCREEN_CAST
+}
 
 data class TvInputPillItem(
     val id: String,
     val label: String,
     val status: String,
     val isConnected: Boolean,
-    val inputUriOrAction: String
+    val inputType: HardwareInputType,
+    val tvInputId: String? = null
 )
 
 data class QuickSettingTileItem(
@@ -68,221 +92,130 @@ data class QuickSettingRowItem(
     val id: String,
     val title: String,
     val settingsAction: String,
-    val isHighlightedAccent: Boolean = false
+    val isHighlightedAccent: Boolean = false,
+    val opensWallpaperScreen: Boolean = false
+)
+
+enum class WallpaperPreset(
+    val id: String,
+    val title: String,
+    val isAnimated: Boolean,
+    val colors: List<Color>
+) {
+    CHARCOAL(
+        id = "charcoal",
+        title = "Charcoal",
+        isAnimated = false,
+        colors = listOf(Color(0xFF101214), Color(0xFF14181C), Color(0xFF0C0E10))
+    ),
+    AURORA(
+        id = "aurora",
+        title = "Aurora",
+        isAnimated = true,
+        colors = listOf(Color(0xFF0E2A23), Color(0xFF163D35), Color(0xFF101C2E), Color(0xFF0D1318))
+    ),
+    DEEP_SPACE(
+        id = "deep_space",
+        title = "Deep space",
+        isAnimated = true,
+        colors = listOf(Color(0xFF0C1021), Color(0xFF1B1938), Color(0xFF0E1D2B), Color(0xFF090B10))
+    ),
+    SLOW_WAVES(
+        id = "slow_waves",
+        title = "Slow waves",
+        isAnimated = true,
+        colors = listOf(Color(0xFF0F222D), Color(0xFF1A3644), Color(0xFF122723), Color(0xFF0D1216))
+    ),
+    SUNSET(
+        id = "sunset",
+        title = "Sunset",
+        isAnimated = false,
+        colors = listOf(Color(0xFF2D191E), Color(0xFF3B2219), Color(0xFF141318))
+    ),
+    FOREST_MIST(
+        id = "forest_mist",
+        title = "Forest mist",
+        isAnimated = false,
+        colors = listOf(Color(0xFF11241D), Color(0xFF1B332B), Color(0xFF0E1513))
+    )
+}
+
+data class WallpaperSettings(
+    val preset: WallpaperPreset = WallpaperPreset.CHARCOAL,
+    val customImageUri: String? = null,
+    val dimFraction: Float = 0.25f,
+    val blurLevel: Int = 0 // 0 = Off, 1 = Subtle, 2 = Medium, 3 = High
 )
 
 object B2SampleCatalog {
-    const val DEFAULT_MOVIE_BOX_PACKAGE = "com.movieboxpro.android"
+    const val MOVIE_BOX_PRO_PACKAGE = "com.movieboxpro.android"
 
-    val initialWatchItems: List<WatchItem> = listOf(
-        // Continue tab (matches B2 mockup 3x2 grid)
-        WatchItem(
-            id = "watch_01",
-            title = "Title 01",
-            subtitle = "SmartTube · 12 min left",
-            progress = 0.68f,
-            gradientStart = Thumb01Start,
-            gradientEnd = Thumb01End,
-            tab = WatchTab.CONTINUE
-        ),
-        WatchItem(
-            id = "watch_02",
-            title = "Title 02",
-            subtitle = "Movie Box Pro · 41 min in",
-            progress = 0.34f,
-            gradientStart = Thumb02Start,
-            gradientEnd = Thumb02End,
-            tab = WatchTab.CONTINUE
-        ),
-        WatchItem(
-            id = "watch_03",
-            title = "Title 03",
-            subtitle = "SmartTube · 3 min left",
-            progress = 0.92f,
-            gradientStart = Thumb03Start,
-            gradientEnd = Thumb03End,
-            tab = WatchTab.CONTINUE
-        ),
-        WatchItem(
-            id = "watch_04",
-            title = "Title 04",
-            subtitle = "Movie Box Pro · S1 E4 next",
-            progress = 0.15f,
-            gradientStart = Thumb04Start,
-            gradientEnd = Thumb04End,
-            tab = WatchTab.CONTINUE
-        ),
-        WatchItem(
-            id = "watch_05",
-            title = "Title 05",
-            subtitle = "Movie Box Pro · S2 E1 next",
-            progress = 0.12f,
-            gradientStart = Thumb05Start,
-            gradientEnd = Thumb05End,
-            tab = WatchTab.CONTINUE
-        ),
-        WatchItem(
-            id = "watch_06",
-            title = "Title 06",
-            subtitle = "SmartTube · 1h 02m left",
-            progress = 0.44f,
-            gradientStart = Thumb06Start,
-            gradientEnd = Thumb06End,
-            tab = WatchTab.CONTINUE
-        ),
-        // Next episode tab
-        WatchItem(
-            id = "next_01",
-            title = "Severance · S2 E03",
-            subtitle = "Movie Box Pro · Up next",
-            progress = 0.05f,
-            gradientStart = Thumb05Start,
-            gradientEnd = Thumb05End,
-            tab = WatchTab.NEXT_EPISODE
-        ),
-        WatchItem(
-            id = "next_02",
-            title = "Shōgun · S1 E08",
-            subtitle = "Movie Box Pro · Up next",
-            progress = 0.05f,
-            gradientStart = Thumb04Start,
-            gradientEnd = Thumb04End,
-            tab = WatchTab.NEXT_EPISODE
-        ),
-        WatchItem(
-            id = "next_03",
-            title = "The Last of Us · S2 E02",
-            subtitle = "Movie Box Pro · Up next",
-            progress = 0.05f,
-            gradientStart = Thumb03Start,
-            gradientEnd = Thumb03End,
-            tab = WatchTab.NEXT_EPISODE
-        ),
-        // Manual To Watch tab
+    val defaultManualToWatch: List<WatchItem> = listOf(
         WatchItem(
             id = "towatch_01",
-            title = "Dune: Part Two (4K HDR)",
-            subtitle = "Movie Box Pro · Manual To Watch",
+            title = "Add movies or shows to your watchlist",
+            subtitle = "Press '+ Add title' above to save items here",
             progress = 0.0f,
-            gradientStart = Thumb02Start,
-            gradientEnd = Thumb02End,
-            tab = WatchTab.TO_WATCH
-        ),
-        WatchItem(
-            id = "towatch_02",
-            title = "Blade Runner 2049",
-            subtitle = "VLC Network Stream · Manual To Watch",
-            progress = 0.0f,
-            gradientStart = Thumb01Start,
-            gradientEnd = Thumb01End,
-            tab = WatchTab.TO_WATCH
-        ),
-        WatchItem(
-            id = "towatch_03",
-            title = "4K OLED Calibration Demo",
-            subtitle = "SmartTube · Manual To Watch",
-            progress = 0.0f,
-            gradientStart = Thumb06Start,
-            gradientEnd = Thumb06End,
-            tab = WatchTab.TO_WATCH
+            gradientStart = Thumb03Start,
+            gradientEnd = Thumb03End,
+            tab = WatchTab.TO_WATCH,
+            isManualEntry = true
         )
     )
 
-    val defaultAppsRow: List<AppTileItem> = listOf(
-        AppTileItem(
-            id = "app_vlc",
-            name = "VLC",
-            packageName = "org.videolan.vlc",
-            iconColor = Color(0xFFE89B4C),
-            iconBgColor = Color(0xFF2D231B)
-        ),
-        AppTileItem(
-            id = "app_smarttube",
-            name = "SmartTube",
-            packageName = "com.liskovsoft.smarttubetv.beta",
-            iconColor = Color(0xFFE05A5A),
-            iconBgColor = Color(0xFF2E1C1E)
-        ),
-        AppTileItem(
-            id = "app_files",
-            name = "File Manager",
-            packageName = "com.lonelycatgames.Xplore",
-            iconColor = Color(0xFF5B9BD5),
-            iconBgColor = Color(0xFF1B2531)
-        ),
-        AppTileItem(
-            id = "app_vpn",
-            name = "Tomato VPN",
-            packageName = "com.tomatovpn.android",
-            iconColor = Color(0xFFE06C5A),
-            iconBgColor = Color(0xFF2D1E1C)
-        ),
-        AppTileItem(
-            id = "app_bilibili",
-            name = "Bilibili",
-            packageName = "com.xiaodianshi.tv.yst",
-            iconColor = Color(0xFF4AC2C2),
-            iconBgColor = Color(0xFF192B2E)
-        ),
-        AppTileItem(
-            id = "app_browser",
-            name = "Browser",
-            packageName = "com.TVBrowser.internet",
-            iconColor = Color(0xFF7B93DB),
-            iconBgColor = Color(0xFF1E2333)
-        ),
-        AppTileItem(
-            id = "app_all_apps",
-            name = "All apps",
-            packageName = "",
-            iconColor = Color(0xFF9AA3AD),
-            iconBgColor = Color(0xFF1A1D21),
-            isAllAppsCard = true
-        )
+    val cardGradients: List<Pair<Color, Color>> = listOf(
+        Thumb01Start to Thumb01End,
+        Thumb02Start to Thumb02End,
+        Thumb03Start to Thumb03End,
+        Thumb05Start to Thumb05End
     )
 
-    val defaultInputsRow: List<TvInputPillItem> = listOf(
+    /**
+     * Honest baseline before TvInputManager / StorageManager query completes:
+     * Nothing is falsely reported as connected.
+     */
+    val baselineInputsRow: List<TvInputPillItem> = listOf(
         TvInputPillItem(
             id = "input_hdmi1",
             label = "HDMI 1",
-            status = "Connected",
-            isConnected = true,
-            inputUriOrAction = "content://android.media.tv/passthrough/com.xiaomi.mitv.tvplayer%2F.hdmi1"
+            status = "No signal",
+            isConnected = false,
+            inputType = HardwareInputType.HDMI_1
         ),
         TvInputPillItem(
             id = "input_hdmi2",
             label = "HDMI 2",
             status = "No signal",
             isConnected = false,
-            inputUriOrAction = "content://android.media.tv/passthrough/com.xiaomi.mitv.tvplayer%2F.hdmi2"
+            inputType = HardwareInputType.HDMI_2
         ),
         TvInputPillItem(
             id = "input_hdmi3",
             label = "HDMI 3",
             status = "No signal",
             isConnected = false,
-            inputUriOrAction = "content://android.media.tv/passthrough/com.xiaomi.mitv.tvplayer%2F.hdmi3"
+            inputType = HardwareInputType.HDMI_3
         ),
         TvInputPillItem(
             id = "input_av",
             label = "AV",
             status = "No signal",
             isConnected = false,
-            inputUriOrAction = "content://android.media.tv/passthrough/com.xiaomi.mitv.tvplayer%2F.av"
+            inputType = HardwareInputType.AV
         ),
         TvInputPillItem(
             id = "input_usb",
             label = "USB",
-            status = "Drive connected",
-            isConnected = true,
-            inputUriOrAction = "android.settings.INTERNAL_STORAGE_SETTINGS"
+            status = "Not connected",
+            isConnected = false,
+            inputType = HardwareInputType.USB
         ),
         TvInputPillItem(
             id = "input_cast",
             label = "Screen cast",
-            status = "Ready",
-            isConnected = true,
-            inputUriOrAction = "android.settings.CAST_SETTINGS"
+            status = "Not connected",
+            isConnected = false,
+            inputType = HardwareInputType.SCREEN_CAST
         )
     )
 }
