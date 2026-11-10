@@ -28,6 +28,10 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Tv
+import androidx.compose.material.icons.outlined.SettingsInputHdmi
+import androidx.compose.material.icons.outlined.SettingsInputComposite
+import androidx.compose.material.icons.outlined.Usb
+import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.InstalledTvApp
+import com.example.model.HardwareInputType
 import com.example.model.TvInputPillItem
 import com.example.model.WatchItem
 import com.example.model.WatchTab
@@ -744,28 +749,35 @@ fun B2InputsRowSection(
             inputs.forEach { input ->
                 TvFocusableSurface(
                     itemId = input.id,
+                    itemLabel = "${input.label}: ${input.status}",
                     shape = RoundedCornerShape(14.dp),
                     restingColor = B2TileSurface,
                     focusedColor = B2RaisedSurface,
                     onClick = { onInputClick(input) },
                     modifier = Modifier
                         .weight(1f)
-                        .height(58.dp)
+                        .height(96.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(if (input.isConnected) B2Accent else B2NotConnectedDot)
+                        Icon(
+                            imageVector = when (input.inputType) {
+                                HardwareInputType.USB -> Icons.Outlined.Usb
+                                HardwareInputType.SCREEN_CAST -> Icons.Outlined.Cast
+                                HardwareInputType.AV -> Icons.Outlined.SettingsInputComposite
+                                else -> Icons.Outlined.SettingsInputHdmi
+                            },
+                            contentDescription = null,
+                            tint = if (input.isConnected) B2Accent else B2QuietText,
+                            modifier = Modifier.size(28.dp)
                         )
                         Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
@@ -780,8 +792,8 @@ fun B2InputsRowSection(
                             )
                             Text(
                                 text = input.status,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                color = B2QuietText,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = if (input.isConnected) B2Accent else B2QuietText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )

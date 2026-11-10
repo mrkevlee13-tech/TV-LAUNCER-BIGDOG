@@ -6,14 +6,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,8 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
@@ -33,17 +29,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -61,8 +59,7 @@ import com.example.ui.theme.B2MainText
 import com.example.ui.theme.B2QuietText
 import com.example.ui.theme.B2RaisedSurface
 import com.example.ui.theme.B2TileSurface
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlinx.coroutines.launch
 
 /**
  * Renders the active wallpaper behind the entire launcher (still preset, animated drifting
@@ -72,8 +69,10 @@ import kotlin.math.sin
 fun B2WallpaperBackdrop(
     settings: WallpaperSettings,
     customBitmap: ImageBitmap?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animationAllowed: Boolean = true
 ) {
+    val resumed = rememberLauncherResumed()
     val blurModifier = when (settings.blurLevel) {
         1 -> Modifier.blur(6.dp)
         2 -> Modifier.blur(14.dp)
@@ -94,6 +93,7 @@ fun B2WallpaperBackdrop(
         } else {
             PresetWallpaperCanvas(
                 preset = settings.preset,
+                animate = settings.animationEnabled && animationAllowed && resumed,
                 modifier = Modifier
                     .fillMaxSize()
                     .then(blurModifier)
@@ -114,14 +114,11 @@ fun B2WallpaperBackdrop(
 @Composable
 private fun PresetWallpaperCanvas(
     preset: WallpaperPreset,
+    animate: Boolean,
     modifier: Modifier = Modifier
 ) {
-    if (!preset.isAnimated) {
-        Box(
-            modifier = modifier.background(
-                Brush.linearGradient(colors = preset.colors)
-            )
-        )
+    if (!preset.isAnimated || !animate) {
+        WallpaperArtwork(preset, 0f, modifier)
         return
     }
 
@@ -136,55 +133,16 @@ private fun PresetWallpaperCanvas(
         label = "drift_phase"
     )
 
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val c0 = preset.colors.getOrElse(0) { B2Background }
-        val c1 = preset.colors.getOrElse(1) { B2Background }
-        val c2 = preset.colors.getOrElse(2) { B2Background }
-        val c3 = preset.colors.getOrElse(3) { B2Background }
-
-        drawRect(
-            brush = Brush.linearGradient(
-                colors = listOf(c0, c2, c3),
-                start = Offset(0f, 0f),
-                end = Offset(w, h)
-            )
-        )
-
-        val orb1X = w * (0.35f + 0.22f * cos(phase))
-        val orb1Y = h * (0.38f + 0.18f * sin(phase))
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(c1.copy(alpha = 0.72f), Color.Transparent),
-                center = Offset(orb1X, orb1Y),
-                radius = w * 0.48f
-            ),
-            radius = w * 0.48f,
-            center = Offset(orb1X, orb1Y)
-        )
-
-        val orb2X = w * (0.68f + 0.20f * sin(phase * 0.8f))
-        val orb2Y = h * (0.62f + 0.16f * cos(phase * 0.8f))
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(c2.copy(alpha = 0.65f), Color.Transparent),
-                center = Offset(orb2X, orb2Y),
-                radius = w * 0.44f
-            ),
-            radius = w * 0.44f,
-            center = Offset(orb2X, orb2Y)
-        )
-    }
+    WallpaperArtwork(preset, phase, modifier)
 }
 
 /**
  * Full-Screen Wallpaper Studio matching the B2 Wallpaper Screen spec:
  * - Shows a full-screen preview of the selected wallpaper with a faint preview of the home layout over it.
- * - Along the bottom is a row of preset cards (152x86dp) with a "Live" badge on animated ones:
+ * - All six presets and Custom photo fit in a two-row grid, with a "Live" badge on animated ones:
  *   Aurora, Deep space, and Slow waves (animated); Charcoal, Sunset, and Forest mist (still).
  * - A dashed card lets the user add their own photo/image.
- * - Dim and Blur sliders/steppers and a "Set wallpaper" button sit above the preset row.
+ * - Dim and Blur steppers and a "Set wallpaper" button sit above the grid.
  */
 @Composable
 fun B2WallpaperStudioScreen(
@@ -199,12 +157,21 @@ fun B2WallpaperStudioScreen(
     var draftCustomUri by remember(currentSettings) { mutableStateOf(currentSettings.customImageUri) }
     var draftDim by remember(currentSettings) { mutableFloatStateOf(currentSettings.dimFraction) }
     var draftBlur by remember(currentSettings) { mutableIntStateOf(currentSettings.blurLevel) }
+    var draftMotion by remember(currentSettings) { mutableStateOf(currentSettings.animationEnabled) }
+    val firstPresetFocusRequester = remember { FocusRequester() }
+    val motionFocusRequester = remember { FocusRequester() }
+    val studioScope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.withFrameNanos { }
+        firstPresetFocusRequester.requestFocus()
+    }
 
     val previewSettings = WallpaperSettings(
         preset = draftPreset,
         customImageUri = draftCustomUri,
         dimFraction = draftDim,
-        blurLevel = draftBlur
+        blurLevel = draftBlur,
+        animationEnabled = draftMotion
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -309,6 +276,20 @@ fun B2WallpaperStudioScreen(
                             decId = "wallpaper_blur_dec",
                             incId = "wallpaper_blur_inc"
                         )
+                        TvFocusableSurface(
+                            itemId = "wallpaper_motion_toggle",
+                            focusRequester = motionFocusRequester,
+                            shape = RoundedCornerShape(12.dp),
+                            onClick = {
+                                draftMotion = !draftMotion
+                                studioScope.launch { androidx.compose.runtime.withFrameNanos { }; motionFocusRequester.requestFocus() }
+                            },
+                            modifier = Modifier.height(42.dp)
+                        ) {
+                            Text("Motion: ${if (draftMotion) "On" else "Off"}",
+                                color = B2MainText, style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.align(Alignment.Center).padding(horizontal = 14.dp))
+                        }
                     }
 
                     // Set wallpaper button
@@ -342,7 +323,7 @@ fun B2WallpaperStudioScreen(
                     }
                 }
 
-                // Row of 152x86dp preset cards + dashed custom photo card
+                // Fixed grid: no cropped edge cards or off-screen carousel items.
                 val orderedPresets = listOf(
                     WallpaperPreset.AURORA,
                     WallpaperPreset.DEEP_SPACE,
@@ -352,59 +333,31 @@ fun B2WallpaperStudioScreen(
                     WallpaperPreset.FOREST_MIST
                 )
 
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp)
+                val options: List<WallpaperPreset?> = orderedPresets + listOf<WallpaperPreset?>(null)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(
-                        items = orderedPresets,
-                        key = { it.id }
-                    ) { preset ->
-                        val isSelected = draftCustomUri == null && draftPreset == preset
-                        WallpaperPresetCard(
-                            preset = preset,
-                            isSelected = isSelected,
-                            onClick = {
-                                draftCustomUri = null
-                                draftPreset = preset
+                    options.chunked(4).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            row.forEach { preset ->
+                                val cardModifier = Modifier.weight(1f).height(78.dp)
+                                if (preset != null) {
+                                    WallpaperPresetCard(
+                                        preset = preset,
+                                        isSelected = draftCustomUri == null && draftPreset == preset,
+                                        focusRequester = if (preset == orderedPresets.first()) firstPresetFocusRequester else null,
+                                        modifier = cardModifier,
+                                        onClick = {
+                                            draftCustomUri = null
+                                            draftPreset = preset
+                                        }
+                                    )
+                                } else {
+                                    CustomWallpaperCard(onPickCustomImage, cardModifier)
+                                }
                             }
-                        )
-                    }
-
-                    // Dashed 152x86dp card to pick custom photo/GIF/video
-                    item(key = "wallpaper_custom_picker") {
-                        TvFocusableSurface(
-                            itemId = "wallpaper_add_custom_card",
-                            shape = RoundedCornerShape(14.dp),
-                            restingColor = B2TileSurface.copy(alpha = 0.65f),
-                            focusedColor = B2RaisedSurface,
-                            dashedOutlineCornerRadius = 14.dp,
-                            onClick = onPickCustomImage,
-                            modifier = Modifier
-                                .width(152.dp)
-                                .height(86.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(10.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.AddPhotoAlternate,
-                                    contentDescription = "Add custom wallpaper",
-                                    tint = B2Accent,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Custom photo",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                                    color = B2MainText
-                                )
-                            }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -417,21 +370,32 @@ fun B2WallpaperStudioScreen(
 private fun WallpaperPresetCard(
     preset: WallpaperPreset,
     isSelected: Boolean,
+    focusRequester: FocusRequester?,
+    modifier: Modifier,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(14.dp)
     val brush = Brush.linearGradient(colors = preset.colors)
+    val localFocus = remember { FocusRequester() }
+    val cardFocus = focusRequester ?: localFocus
+    val scope = rememberCoroutineScope()
 
     TvFocusableSurface(
         itemId = "wallpaper_preset_${preset.id}",
         shape = shape,
         restingBrush = brush,
-        onClick = onClick,
-        modifier = Modifier
-            .width(152.dp)
-            .height(86.dp)
+        focusRequester = cardFocus,
+        focusScale = 1.025f,
+        onClick = {
+            onClick()
+            scope.launch { androidx.compose.runtime.withFrameNanos { }; cardFocus.requestFocus() }
+        },
+        modifier = modifier
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // The thumbnail uses the same artwork as Home, frozen to avoid six
+            // extra animation loops while browsing the preset row.
+            WallpaperArtwork(preset, 0f, Modifier.fillMaxSize())
             // Live badge on animated presets
             if (preset.isAnimated) {
                 Box(
@@ -481,6 +445,35 @@ private fun WallpaperPresetCard(
 }
 
 @Composable
+private fun CustomWallpaperCard(onPick: () -> Unit, modifier: Modifier) {
+    TvFocusableSurface(
+        itemId = "wallpaper_add_custom_card",
+        shape = RoundedCornerShape(14.dp),
+        restingColor = B2TileSurface.copy(alpha = 0.65f),
+        focusedColor = B2RaisedSurface,
+        dashedOutlineCornerRadius = 14.dp,
+        focusScale = 1.025f,
+        onClick = onPick,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AddPhotoAlternate,
+                contentDescription = "Add custom wallpaper",
+                tint = B2Accent,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("Custom photo", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = B2MainText)
+        }
+    }
+}
+
+@Composable
 private fun WallpaperStepperControl(
     label: String,
     valueText: String,
@@ -489,6 +482,16 @@ private fun WallpaperStepperControl(
     decId: String,
     incId: String
 ) {
+    val decreaseFocus = remember { FocusRequester() }
+    val increaseFocus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
+    fun adjust(action: () -> Unit, focus: FocusRequester) {
+        action()
+        scope.launch {
+            androidx.compose.runtime.withFrameNanos { }
+            focus.requestFocus()
+        }
+    }
     Row(
         modifier = Modifier
             .height(42.dp)
@@ -505,10 +508,11 @@ private fun WallpaperStepperControl(
         )
         TvFocusableSurface(
             itemId = decId,
+            focusRequester = decreaseFocus,
             shape = RoundedCornerShape(8.dp),
             restingColor = B2RaisedSurface,
             focusedColor = B2RaisedSurface,
-            onClick = onDecrease,
+            onClick = { adjust(onDecrease, decreaseFocus) },
             modifier = Modifier.size(28.dp)
         ) {
             Text(
@@ -529,10 +533,11 @@ private fun WallpaperStepperControl(
         )
         TvFocusableSurface(
             itemId = incId,
+            focusRequester = increaseFocus,
             shape = RoundedCornerShape(8.dp),
             restingColor = B2RaisedSurface,
             focusedColor = B2RaisedSurface,
-            onClick = onIncrease,
+            onClick = { adjust(onIncrease, increaseFocus) },
             modifier = Modifier.size(28.dp)
         ) {
             Text(

@@ -14,6 +14,8 @@ import com.example.model.WallpaperPreset
 import com.example.model.WallpaperSettings
 import com.example.model.WatchItem
 import com.example.model.WatchTab
+import com.example.model.HeroSource
+import org.json.JSONObject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -29,7 +31,8 @@ data class PersistedLauncherPrefs(
     val heroPackageName: String,
     val heroCustomLabel: String?,
     val customWatchItems: List<WatchItem>,
-    val wallpaperSettings: WallpaperSettings
+    val wallpaperSettings: WallpaperSettings,
+    val lastHeroSource: HeroSource? = null
 )
 
 object LauncherPreferencesRepository {
@@ -44,6 +47,8 @@ object LauncherPreferencesRepository {
     private val KEY_WALLPAPER_URI = stringPreferencesKey("wallpaper_custom_uri")
     private val KEY_WALLPAPER_DIM = floatPreferencesKey("wallpaper_dim_fraction")
     private val KEY_WALLPAPER_BLUR = intPreferencesKey("wallpaper_blur_level")
+    private val KEY_WALLPAPER_ANIMATION = booleanPreferencesKey("wallpaper_animation_enabled")
+    private val KEY_LAST_SOURCE = stringPreferencesKey("last_entertainment_source_v1")
 
     fun observePreferences(context: Context): Flow<PersistedLauncherPrefs> {
         return context.applicationContext.launcherDataStore.data.map { prefs ->
@@ -86,8 +91,18 @@ object LauncherPreferencesRepository {
                     preset = preset,
                     customImageUri = customUri,
                     dimFraction = dim,
-                    blurLevel = blur
-                )
+                    blurLevel = blur,
+                    animationEnabled = prefs[KEY_WALLPAPER_ANIMATION] ?: true
+                ),
+                lastHeroSource = prefs[KEY_LAST_SOURCE]?.let { raw ->
+                    runCatching {
+                        val json = JSONObject(raw)
+                        val kind = json.getString("kind")
+                        require(kind in setOf("app", "input", "media"))
+                        HeroSource(kind, json.getString("target"), json.getString("title"),
+                            json.optString("mime").takeIf { it.isNotBlank() })
+                    }.getOrNull()
+                }
             )
         }
     }
@@ -143,6 +158,16 @@ object LauncherPreferencesRepository {
             }
             prefs[KEY_WALLPAPER_DIM] = settings.dimFraction
             prefs[KEY_WALLPAPER_BLUR] = settings.blurLevel
+            prefs[KEY_WALLPAPER_ANIMATION] = settings.animationEnabled
+        }
+    }
+
+    suspend fun saveLastHeroSource(context: Context, source: HeroSource) {
+        context.applicationContext.launcherDataStore.edit { prefs ->
+            prefs[KEY_LAST_SOURCE] = JSONObject().apply {
+                put("kind", source.kind); put("target", source.target); put("title", source.title)
+                put("mime", source.mimeType ?: "")
+            }.toString()
         }
     }
 

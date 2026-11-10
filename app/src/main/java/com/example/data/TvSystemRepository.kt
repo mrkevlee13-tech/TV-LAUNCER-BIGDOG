@@ -479,7 +479,7 @@ object TvSystemRepository {
 
     /**
      * Queries real hardware input connection states from TvInputManager, StorageManager/UsbManager,
-     * and DisplayManager. Never fakes "Connected" or "Ready" when disconnected!
+     * and DisplayManager. Standby is not an active input; query failures remain unknown.
      */
     fun queryHardwareInputs(context: Context): List<TvInputPillItem> {
         val tvInputManager = runCatching {
@@ -491,13 +491,11 @@ object TvSystemRepository {
         }.getOrDefault(emptyList())
 
         val hdmiInputs = systemInputs
-            .filter { it.type == TvInputInfo.TYPE_HDMI }
-            .sortedBy { it.id }
+            .filter { it.type == TvInputInfo.TYPE_HDMI && it.parentId == null }
 
         val avInput = systemInputs.firstOrNull {
             it.type == TvInputInfo.TYPE_COMPOSITE ||
-                it.type == TvInputInfo.TYPE_COMPONENT ||
-                it.type == TvInputInfo.TYPE_OTHER
+            it.type == TvInputInfo.TYPE_COMPONENT
         }
 
         fun buildHdmiPill(
@@ -506,23 +504,22 @@ object TvSystemRepository {
             label: String,
             inputType: HardwareInputType
         ): TvInputPillItem {
-            val matchedInfo = hdmiInputs.getOrNull(index)
-                ?: systemInputs.firstOrNull {
-                    it.id.contains("hdmi${index + 1}", ignoreCase = true) ||
-                        it.id.contains("HW${index + 1}", ignoreCase = true)
-                }
+            // Input IDs are not port-order indexes. Missing HDMI 1 must never make
+            // HDMI 2 appear as HDMI 1, and CEC child sources are not extra TV ports.
+            val matchedInfo = hdmiInputs.firstOrNull {
+                hardwareHdmiPort(it.id) == index + 1 ||
+                    runCatching { hardwareHdmiPort(it.loadLabel(context).toString()) }.getOrNull() == index + 1
+            }
 
             if (matchedInfo != null && tvInputManager != null) {
                 val state = runCatching {
                     tvInputManager.getInputState(matchedInfo.id)
-                }.getOrDefault(TvInputManager.INPUT_STATE_DISCONNECTED)
-                val connected = state == TvInputManager.INPUT_STATE_CONNECTED ||
-                    state == TvInputManager.INPUT_STATE_CONNECTED_STANDBY
+                }.getOrNull()
                 return TvInputPillItem(
                     id = id,
                     label = label,
-                    status = if (connected) "Connected" else "No signal",
-                    isConnected = connected,
+                    status = hardwareInputStatus(state),
+                    isConnected = state == TvInputManager.INPUT_STATE_CONNECTED,
                     inputType = inputType,
                     tvInputId = matchedInfo.id
                 )
@@ -531,20 +528,19 @@ object TvSystemRepository {
             return TvInputPillItem(
                 id = id,
                 label = label,
-                status = "No signal",
+                status = "Unavailable",
                 isConnected = false,
                 inputType = inputType,
                 tvInputId = null
             )
         }
 
-        val avConnected = if (avInput != null && tvInputManager != null) {
+        val avState = if (avInput != null && tvInputManager != null) {
             runCatching {
-                val st = tvInputManager.getInputState(avInput.id)
-                st == TvInputManager.INPUT_STATE_CONNECTED || st == TvInputManager.INPUT_STATE_CONNECTED_STANDBY
-            }.getOrDefault(false)
+                tvInputManager.getInputState(avInput.id)
+            }.getOrNull()
         } else {
-            false
+            null
         }
 
         val (usbConnected, usbStatusText) = checkRealUsbConnection(context)
@@ -557,8 +553,8 @@ object TvSystemRepository {
             TvInputPillItem(
                 id = "input_av",
                 label = "AV",
-                status = if (avConnected) "Connected" else "No signal",
-                isConnected = avConnected,
+                status = if (avInput == null) "Unavailable" else hardwareInputStatus(avState),
+                isConnected = avState == TvInputManager.INPUT_STATE_CONNECTED,
                 inputType = HardwareInputType.AV,
                 tvInputId = avInput?.id
             ),

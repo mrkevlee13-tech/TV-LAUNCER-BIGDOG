@@ -144,7 +144,16 @@ data class WallpaperSettings(
     val preset: WallpaperPreset = WallpaperPreset.CHARCOAL,
     val customImageUri: String? = null,
     val dimFraction: Float = 0.25f,
-    val blurLevel: Int = 0 // 0 = Off, 1 = Subtle, 2 = Medium, 3 = High
+    val blurLevel: Int = 0, // 0 = Off, 1 = Subtle, 2 = Medium, 3 = High
+    val animationEnabled: Boolean = true
+)
+
+/** A resumable destination, not fabricated programme metadata or progress. */
+data class HeroSource(
+    val kind: String, // app, input, media
+    val target: String,
+    val title: String,
+    val mimeType: String? = null
 )
 
 object B2SampleCatalog {

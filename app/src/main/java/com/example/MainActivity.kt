@@ -45,8 +45,9 @@ import com.example.ui.components.AddToWatchModal
 import com.example.ui.components.B2AllAppsOverlayModal
 import com.example.ui.components.B2DynamicAppsRowSection
 import com.example.ui.components.B2HeaderBar
-import com.example.ui.components.B2HeroAndWatchShelf
-import com.example.ui.components.B2InputsRowSection
+import com.example.ui.components.B2SourceShelf
+import com.example.ui.components.B2InputFullScreen
+import com.example.model.HardwareInputType
 import com.example.ui.components.B2QuickSettingsOverlay
 import com.example.ui.components.B2SearchOverlayModal
 import com.example.ui.components.B2SideRail
@@ -164,6 +165,7 @@ fun BigDogLauncherScreen(
 ) {
     val context = LocalContext.current
     val heroFocusRequester = remember { FocusRequester() }
+    val inputsFocusRequester = remember { FocusRequester() }
     val settingsFocusRequester = remember { FocusRequester() }
     val railAllAppsFocusRequester = remember { FocusRequester() }
     val homeAllAppsFocusRequester = remember { FocusRequester() }
@@ -199,10 +201,36 @@ fun BigDogLauncherScreen(
     ) { uri ->
         viewModel.onCustomWallpaperUriPicked(context, uri)
     }
+    val usbVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        viewModel.onUsbMediaPicked(context, uri)
+    }
 
     LaunchedEffect(Unit) {
         delay(120L)
         runCatching { heroFocusRequester.requestFocus() }
+    }
+
+    var wallpaperWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(uiState.selectedRail) {
+        if (wallpaperWasOpen && uiState.selectedRail == RailDestination.HOME) {
+            androidx.compose.runtime.withFrameNanos { }
+            heroFocusRequester.requestFocus()
+        }
+        wallpaperWasOpen = uiState.selectedRail == RailDestination.WALLPAPER
+    }
+    var inputWasFullScreen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(uiState.isInputFullScreen) {
+        if (inputWasFullScreen && !uiState.isInputFullScreen) {
+            androidx.compose.runtime.withFrameNanos { }
+            heroFocusRequester.requestFocus()
+        }
+        inputWasFullScreen = uiState.isInputFullScreen
+    }
+    LaunchedEffect(uiState.selectedRail) {
+        if (uiState.selectedRail == RailDestination.INPUTS && !uiState.isInputFullScreen) {
+            androidx.compose.runtime.withFrameNanos { }
+            inputsFocusRequester.requestFocus()
+        }
     }
 
     // Restore focus to a visible control after settings, including when the rail is hidden.
@@ -219,7 +247,7 @@ fun BigDogLauncherScreen(
     }
 
     BackHandler(
-        enabled = uiState.isQuickSettingsOpen ||
+        enabled = uiState.isInputFullScreen || uiState.isQuickSettingsOpen ||
             uiState.isHeroSelectorOpen ||
             uiState.isAddToWatchDialogOpen ||
             uiState.isAllAppsOverlayOpen ||
@@ -232,39 +260,30 @@ fun BigDogLauncherScreen(
             uiState.isAllAppsOverlayOpen -> if (!uiState.isSavingHomeApps) viewModel.setAllAppsOverlayOpen(false)
             uiState.isSearchOverlayOpen -> viewModel.setSearchOverlayOpen(false)
             uiState.isQuickSettingsOpen -> viewModel.setQuickSettingsOpen(false)
+            uiState.isInputFullScreen -> viewModel.closeInputFullScreen()
             uiState.selectedRail != RailDestination.HOME -> {
                 viewModel.onSideRailClicked(context, RailDestination.HOME)
             }
         }
     }
 
-    val resolvedHeroApp = TvSystemRepository.resolveHeroApp(
-        installedApps = uiState.installedApps,
-        preferredPackage = uiState.heroPackageName
-    )
-
-    val heroTitle = resolvedHeroApp?.name
-        ?: uiState.heroCustomLabel
-        ?: "Movie Box Pro"
-
-    val heroSubtitle = if (resolvedHeroApp != null) {
-        "Installed on TV · Press OK to open"
-    } else {
-        "Open your library · Press 'Change app' to select any TV APK"
+    val resolvedHeroApp = uiState.installedApps.firstOrNull {
+        uiState.heroSource?.kind == "app" && it.packageName == uiState.heroSource.target
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Active B2 Wallpaper Backdrop (Still, Animated Drift, or User Image + Dim & Blur)
         B2WallpaperBackdrop(
             settings = uiState.wallpaperSettings,
-            customBitmap = uiState.customWallpaperBitmap
+            customBitmap = uiState.customWallpaperBitmap,
+            animationAllowed = uiState.selectedRail != RailDestination.WALLPAPER && !uiState.isInputFullScreen
         )
 
-        Row(modifier = Modifier.fillMaxSize().focusProperties {
+        if (!uiState.isInputFullScreen) Row(modifier = Modifier.fillMaxSize().focusProperties {
             canFocus = !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen
         }) {
             // Left 88dp Side Rail (#0B0D0F)
-            if (uiState.showLeftSidebar) B2SideRail(
+            if (uiState.showLeftSidebar && uiState.selectedRail != RailDestination.WALLPAPER) B2SideRail(
                 allAppsFocusRequester = railAllAppsFocusRequester,
                 selectedDestination = uiState.selectedRail,
                 onSelectDestination = { destination ->
@@ -319,20 +338,25 @@ fun BigDogLauncherScreen(
                         onOpenQuickSettings = { viewModel.setQuickSettingsOpen(true) }
                     )
 
-                    B2HeroAndWatchShelf(
+                    B2SourceShelf(
+                        source = uiState.heroSource,
                         heroApp = resolvedHeroApp,
-                        heroDisplayTitle = heroTitle,
-                        heroDisplaySubtitle = heroSubtitle,
-                        selectedTab = uiState.selectedWatchTab,
-                        watchItems = uiState.watchItems,
+                        inputs = uiState.inputsRow,
+                        isDraft = uiState.isHeroDraft || !uiState.hasHeroHistory,
                         heroFocusRequester = heroFocusRequester,
-                        onSelectTab = { viewModel.selectWatchTab(it) },
-                        onHeroClick = { viewModel.onHeroTileClicked(context) },
-                        onChangeHeroAppClick = { viewModel.setHeroSelectorOpen(true) },
-                        onWatchItemClick = { item ->
-                            viewModel.onWatchItemClicked(context, item)
+                        inputsFocusRequester = inputsFocusRequester,
+                        onSelectInput = { viewModel.onHardwareInputPillClicked(context, it) },
+                        onOpenHero = {
+                            if (uiState.heroSource?.kind == "input" && uiState.heroSource.target == "input_usb") {
+                                if (uiState.inputsRow.any { it.id == "input_usb" && it.isConnected }) {
+                                    runCatching { usbVideoLauncher.launch(arrayOf("video/*", "audio/*")) }
+                                        .onFailure { android.widget.Toast.makeText(context, "No video file picker available", android.widget.Toast.LENGTH_LONG).show() }
+                                } else android.widget.Toast.makeText(context, "Connect a USB drive first", android.widget.Toast.LENGTH_LONG).show()
+                            } else viewModel.onHeroTileClicked(context)
                         },
-                        onOpenCustomizeWatchShelf = { viewModel.setAddToWatchDialogOpen(true) }
+                        onChooseApp = { viewModel.setHeroSelectorOpen(true) },
+                        previewEnabled = !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen &&
+                            !uiState.isSearchOverlayOpen && !uiState.isHeroSelectorOpen
                     )
 
                     B2DynamicAppsRowSection(
@@ -348,12 +372,17 @@ fun BigDogLauncherScreen(
                         }
                     )
 
-                    B2InputsRowSection(
-                        inputs = uiState.inputsRow,
-                        onInputClick = { input -> viewModel.onHardwareInputPillClicked(context, input) }
-                    )
                 }
             }
+        }
+
+        if (uiState.isInputFullScreen) {
+            val input = uiState.inputsRow.firstOrNull { it.id == uiState.heroSource?.target }
+            if (input != null) B2InputFullScreen(
+                input = input,
+                onBack = { viewModel.closeInputFullScreen() },
+                onVideoAvailable = { viewModel.onFullScreenVideoAvailable(context) }
+            )
         }
 
         // Slide-over 460dp Quick Settings Panel (#15181B) with scrollable non-squashed 50dp rows

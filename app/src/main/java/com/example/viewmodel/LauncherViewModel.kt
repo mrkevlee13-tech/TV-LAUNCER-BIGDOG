@@ -12,7 +12,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.LauncherPreferencesRepository
 import com.example.data.PersistedLauncherPrefs
 import com.example.data.TvSystemRepository
+import com.example.data.resolveHeroSource
 import com.example.model.B2SampleCatalog
+import com.example.model.HeroSource
+import com.example.model.HardwareInputType
+import android.provider.OpenableColumns
 import com.example.model.InstalledTvApp
 import com.example.model.QuickSettingRowItem
 import com.example.model.QuickSettingTileItem
@@ -41,7 +45,11 @@ data class LauncherUiState(
     val isLoadingApps: Boolean = true,
     val heroPackageName: String = B2SampleCatalog.MOVIE_BOX_PRO_PACKAGE,
     val heroCustomLabel: String? = null,
-    val inputsRow: List<TvInputPillItem> = B2SampleCatalog.baselineInputsRow,
+    val heroSource: HeroSource? = null,
+    val isHeroDraft: Boolean = false,
+    val hasHeroHistory: Boolean = false,
+    val isInputFullScreen: Boolean = false,
+    val inputsRow: List<TvInputPillItem> = B2SampleCatalog.baselineInputsRow.filterNot { it.inputType == HardwareInputType.AV },
     val wallpaperSettings: WallpaperSettings = WallpaperSettings(),
     val customWallpaperBitmap: ImageBitmap? = null,
     val isQuickSettingsOpen: Boolean = false,
@@ -100,6 +108,8 @@ class LauncherViewModel : ViewModel() {
     val uiState: StateFlow<LauncherUiState> = _uiState.asStateFlow()
 
     private var hasStartedPrefsCollection = false
+    private var lastOpenedSource: HeroSource? = null
+    private var isOpeningMedia = false
 
     fun initialize(context: Context) {
         val appContext = context.applicationContext
@@ -136,15 +146,10 @@ class LauncherViewModel : ViewModel() {
                 context = appContext,
                 pinnedPackages = prefs.pinnedPackages
             )
-            val inputs = TvSystemRepository.queryHardwareInputs(appContext)
+            val inputs = TvSystemRepository.queryHardwareInputs(appContext).filterNot { it.inputType == HardwareInputType.AV }
             val wifiName = TvSystemRepository.resolveWifiDisplayName(appContext)
             val qsTiles = TvSystemRepository.queryQuickSettingTiles(appContext, wifiName)
-            val watchList = TvSystemRepository.buildWatchPanelItems(
-                context = appContext,
-                installedApps = apps,
-                recentPackages = prefs.recentPackages,
-                customWatchItems = prefs.customWatchItems
-            )
+            val watchList = emptyList<WatchItem>()
             val customWallBmp = TvSystemRepository.loadCustomWallpaperBitmap(
                 context = appContext,
                 uriString = prefs.wallpaperSettings.customImageUri
@@ -167,6 +172,11 @@ class LauncherViewModel : ViewModel() {
                 isLoadingApps = false,
                 heroPackageName = prefs.heroPackageName,
                 heroCustomLabel = prefs.heroCustomLabel,
+                heroSource = resolveHeroSource(state.heroSource, state.isHeroDraft, lastOpenedSource, prefs.lastHeroSource,
+                    TvSystemRepository.resolveHeroApp(result.apps, prefs.heroPackageName)?.let {
+                        HeroSource("app", it.packageName, it.name)
+                    }),
+                hasHeroHistory = lastOpenedSource != null || prefs.lastHeroSource != null,
                 inputsRow = result.inputs,
                 wifiDisplayName = result.wifiName,
                 quickSettingTiles = result.qsTiles,
@@ -202,6 +212,7 @@ class LauncherViewModel : ViewModel() {
                 _uiState.update {
                     it.copy(
                         selectedRail = RailDestination.HOME,
+                        isInputFullScreen = false,
                         isAllAppsOverlayOpen = false,
                         isSearchOverlayOpen = false,
                         isQuickSettingsOpen = false
@@ -217,7 +228,8 @@ class LauncherViewModel : ViewModel() {
                         isQuickSettingsOpen = false
                     )
                 }
-                onHeroTileClicked(context)
+                val movieApp = TvSystemRepository.resolveHeroApp(_uiState.value.installedApps, _uiState.value.heroPackageName)
+                if (movieApp != null) onInstalledAppClicked(context, movieApp) else setHeroSelectorOpen(true)
             }
             RailDestination.ALL_APPS -> {
                 _uiState.update {
@@ -274,20 +286,38 @@ class LauncherViewModel : ViewModel() {
     }
 
     fun onHeroTileClicked(context: Context) {
-        val appContext = context.applicationContext
-        val resolvedHero = TvSystemRepository.resolveHeroApp(
-            installedApps = _uiState.value.installedApps,
-            preferredPackage = _uiState.value.heroPackageName
-        )
-        if (resolvedHero != null) {
-            TvSystemRepository.launchInstalledApp(context, resolvedHero)
-            viewModelScope.launch {
-                LauncherPreferencesRepository.recordRecentAppLaunch(appContext, resolvedHero.packageName)
+        val source = _uiState.value.heroSource
+        if (source?.kind == "input") {
+            val input = _uiState.value.inputsRow.firstOrNull { it.id == source.target }
+            if (input == null) { showToast(context, "Input unavailable"); return }
+            when (input.inputType) {
+                HardwareInputType.USB -> showToast(context, "Choose a video from your USB drive")
+                HardwareInputType.SCREEN_CAST -> {
+                    val feedback = TvSystemRepository.activateScreenCast(context)
+                    showToast(context, feedback)
+                    if (feedback == "Opened SmartShare") rememberHeroSource(context, source)
+                }
+                else -> {
+                    if (!input.isConnected || input.tvInputId.isNullOrBlank()) {
+                        showToast(context, "${input.label}: ${input.status}. Turn on the source first.")
+                    } else {
+                        _uiState.update { it.copy(isInputFullScreen = true) }
+                    }
+                }
             }
             return
         }
+        if (source?.kind == "media") { launchHeroMedia(context, source); return }
+        val appContext = context.applicationContext
+        val resolvedHero = if (source != null) _uiState.value.installedApps.firstOrNull { it.packageName == source.target }
+            else TvSystemRepository.resolveHeroApp(_uiState.value.installedApps, _uiState.value.heroPackageName)
+        if (resolvedHero != null) {
+            onInstalledAppClicked(context, resolvedHero)
+            return
+        }
 
-        if (TvSystemRepository.launchPackageIfInstalled(context, _uiState.value.heroPackageName)) {
+        if (TvSystemRepository.launchPackageIfInstalled(context, source?.target ?: _uiState.value.heroPackageName)) {
+            source?.let { rememberHeroSource(context, it) }
             viewModelScope.launch {
                 LauncherPreferencesRepository.recordRecentAppLaunch(appContext, _uiState.value.heroPackageName)
             }
@@ -334,13 +364,15 @@ class LauncherViewModel : ViewModel() {
         val appContext = context.applicationContext
         val result = TvSystemRepository.launchInstalledApp(context, app)
         result.onSuccess {
+            rememberHeroSource(context, HeroSource("app", app.packageName, app.name))
             viewModelScope.launch {
                 LauncherPreferencesRepository.recordRecentAppLaunch(appContext, app.packageName)
             }
             _uiState.update {
                 it.copy(
                     isAllAppsOverlayOpen = false,
-                    isSearchOverlayOpen = false
+                    isSearchOverlayOpen = false,
+                    isInputFullScreen = false
                 )
             }
         }.onFailure {
@@ -372,15 +404,17 @@ class LauncherViewModel : ViewModel() {
 
     fun setFeaturedHeroApp(context: Context, app: InstalledTvApp) {
         val appContext = context.applicationContext
+        _uiState.update { it.copy(heroSource = HeroSource("app", app.packageName, app.name), isHeroDraft = true) }
         viewModelScope.launch {
             LauncherPreferencesRepository.saveHeroApp(appContext, app.packageName, app.name)
             _uiState.update {
                 it.copy(
                     isHeroSelectorOpen = false,
-                    isAllAppsOverlayOpen = false
+                    isAllAppsOverlayOpen = false,
+                    isInputFullScreen = false
                 )
             }
-            showToast(appContext, "${app.name} set as Featured Hero Tile")
+            showToast(appContext, "${app.name} selected. Press Hero to open.")
         }
     }
 
@@ -414,8 +448,61 @@ class LauncherViewModel : ViewModel() {
     }
 
     fun onHardwareInputPillClicked(context: Context, input: TvInputPillItem) {
-        val feedback = TvSystemRepository.activateHardwareInput(context, input)
-        showToast(context, feedback)
+        _uiState.update {
+            it.copy(heroSource = HeroSource("input", input.id, input.label), isHeroDraft = true)
+        }
+    }
+
+    fun closeInputFullScreen() { _uiState.update { it.copy(isInputFullScreen = false) } }
+
+    fun onFullScreenVideoAvailable(context: Context) {
+        if (_uiState.value.isInputFullScreen) _uiState.value.heroSource?.let { rememberHeroSource(context, it) }
+    }
+
+    private fun rememberHeroSource(context: Context, source: HeroSource) {
+        lastOpenedSource = source
+        _uiState.update { it.copy(heroSource = source, isHeroDraft = false, hasHeroHistory = true) }
+        viewModelScope.launch {
+            runCatching { LauncherPreferencesRepository.saveLastHeroSource(context.applicationContext, source) }
+                .onFailure { showToast(context, "Unable to remember last source") }
+        }
+    }
+
+    fun onUsbMediaPicked(context: Context, uri: Uri?) {
+        if (uri == null) return
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        val title = runCatching {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.getOrNull() ?: "USB video"
+        val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: "video/*"
+        launchHeroMedia(context, HeroSource("media", uri.toString(), title, mime))
+    }
+
+    private fun launchHeroMedia(context: Context, source: HeroSource) {
+        if (isOpeningMedia) return
+        isOpeningMedia = true
+        viewModelScope.launch {
+            try {
+                val readable = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(Uri.parse(source.target))?.use { true } ?: false
+                    }.getOrDefault(false)
+                }
+                if (!readable) {
+                    showToast(context, "File unavailable. Connect the drive and re-select the video from USB.")
+                    return@launch
+                }
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(Uri.parse(source.target), source.mimeType ?: "video/*")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runCatching { context.startActivity(intent) }
+                    .onSuccess { rememberHeroSource(context, source) }
+                    .onFailure { showToast(context, "Unable to open ${source.title}. Re-select the file from USB.") }
+            } finally { isOpeningMedia = false }
+        }
     }
 
     fun selectWatchTab(tab: WatchTab) {
