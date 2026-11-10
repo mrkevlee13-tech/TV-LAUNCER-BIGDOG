@@ -2,6 +2,8 @@ package com.example.ui.components
 
 import android.media.tv.TvContract
 import android.media.tv.TvView
+import android.media.AudioManager
+import android.content.Context
 import android.util.Log
 import android.view.ViewGroup
 import androidx.compose.foundation.BorderStroke
@@ -48,6 +50,7 @@ private fun sourceIcon(type: HardwareInputType?): ImageVector = when (type) {
 fun B2SourceShelf(
     source: HeroSource?,
     heroApp: InstalledTvApp?,
+    vlcPlayback: VlcPlayback?,
     inputs: List<TvInputPillItem>,
     isDraft: Boolean,
     heroFocusRequester: FocusRequester,
@@ -57,6 +60,7 @@ fun B2SourceShelf(
     onChooseApp: () -> Unit,
     previewEnabled: Boolean
 ) {
+    val lastVlcVideo = vlcPlayback?.takeIf { source?.kind == "app" && source.target == "org.videolan.vlc" }
     val input = inputs.firstOrNull { source?.kind == "input" && it.id == source.target }
     val scope = rememberCoroutineScope()
     val chooseAppFocus = remember { FocusRequester() }
@@ -96,9 +100,11 @@ fun B2SourceShelf(
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))))
                     .padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(source?.title ?: "Choose an app or input", color = B2MainText,
+                        Text(lastVlcVideo?.title ?: source?.title ?: "Choose an app or input", color = B2MainText,
                             style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val hint = when {
+                            lastVlcVideo != null -> if (lastVlcVideo.isPlaying)
+                                "VLC · Playing · OK for video" else "VLC · Paused / last video · OK to resume"
                             source?.kind == "media" -> "USB video · OK to open in your player"
                             input?.inputType == HardwareInputType.USB -> if (input.isConnected)
                                 "${input.status} · OK to choose a video" else "Connect a USB drive first"
@@ -183,11 +189,29 @@ private fun InputVideoSurface(
             }
             AndroidView(factory = { view }, modifier = Modifier.fillMaxSize())
             DisposableEffect(view, fullScreen, lifecycleOwner) {
+                val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                var tuned = false
+                var ownsAudioFocus = false
+                fun release() {
+                    // Mute before releasing the hardware session; disposal alone can be too late.
+                    runCatching { view.setStreamVolume(0f) }
+                    runCatching { view.reset() }
+                    tuned = false
+                    videoAvailable = false
+                }
+                val audioFocusListener = AudioManager.OnAudioFocusChangeListener { change ->
+                    if (change <= AudioManager.AUDIOFOCUS_LOSS) {
+                        ownsAudioFocus = false
+                        release()
+                        status = "HDMI paused while another app plays"
+                    }
+                }
                 view.setCallback(object : TvView.TvInputCallback() {
                     override fun onVideoAvailable(id: String) {
                         videoAvailable = true
                         status = "Live preview"
                         Log.i("BigDogInputs", "Video available: $id fullscreen=$fullScreen")
+                        view.setStreamVolume(if (fullScreen && ownsAudioFocus) 1f else 0f)
                         if (fullScreen) latestVideoAvailable()
                     }
                     override fun onVideoUnavailable(id: String, reason: Int) {
@@ -204,11 +228,17 @@ private fun InputVideoSurface(
                         status = "Source disconnected"
                     }
                 })
-                var tuned = false
                 fun tune() {
                     if (tuned) return
                     runCatching {
-                        view.setStreamVolume(if (fullScreen) 1f else 0f)
+                        if (fullScreen) {
+                            @Suppress("DEPRECATION")
+                            val result = audio.requestAudioFocus(audioFocusListener, AudioManager.STREAM_MUSIC,
+                                AudioManager.AUDIOFOCUS_GAIN)
+                            ownsAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+                            if (!ownsAudioFocus) { status = "HDMI audio is in use by another app"; return }
+                        }
+                        view.setStreamVolume(0f)
                         view.tune(inputId, TvContract.buildChannelUriForPassthroughInput(inputId))
                         tuned = true
                     }.onFailure {
@@ -219,16 +249,20 @@ private fun InputVideoSurface(
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) tune()
                     if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
-                        runCatching { view.reset() }
-                        tuned = false
-                        videoAvailable = false
+                        release()
+                        @Suppress("DEPRECATION")
+                        audio.abandonAudioFocus(audioFocusListener)
+                        ownsAudioFocus = false
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) tune()
                 onDispose {
                     lifecycleOwner.lifecycle.removeObserver(observer)
-                    runCatching { view.reset(); view.setCallback(null) }
+                    release()
+                    @Suppress("DEPRECATION")
+                    audio.abandonAudioFocus(audioFocusListener)
+                    runCatching { view.setCallback(null) }
                 }
             }
             LaunchedEffect(inputId) {

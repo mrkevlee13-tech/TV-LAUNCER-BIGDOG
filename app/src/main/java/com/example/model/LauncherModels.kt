@@ -156,6 +156,15 @@ data class HeroSource(
     val mimeType: String? = null
 )
 
+data class VlcPlayback(
+    val title: String,
+    val mediaId: String,
+    val durationMs: Long = 0,
+    val positionMs: Long? = null,
+    val mediaUri: String? = null,
+    val isPlaying: Boolean = false
+)
+
 object B2SampleCatalog {
     const val MOVIE_BOX_PRO_PACKAGE = "com.movieboxpro.android"
 

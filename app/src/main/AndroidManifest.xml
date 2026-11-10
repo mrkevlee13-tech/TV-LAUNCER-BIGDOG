@@ -77,6 +77,7 @@
         <!-- Xiaomi TV Home Button & Stock Launcher Interceptor Service -->
         <service
             android:name=".service.BigDogHomeAccessibilityService"
+            android:process=":home"
             android:exported="true"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">

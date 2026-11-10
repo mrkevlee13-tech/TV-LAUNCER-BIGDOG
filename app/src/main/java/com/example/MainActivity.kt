@@ -57,12 +57,24 @@ import com.example.ui.components.HeroAppSelectorOrMissingModal
 import com.example.ui.theme.BigDogLauncherTheme
 import com.example.viewmodel.LauncherUiState
 import com.example.viewmodel.LauncherViewModel
+import com.example.service.BigDogHomeAccessibilityService
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: LauncherViewModel by viewModels()
     private var tvInputManager: TvInputManager? = null
+    private val foregroundAppReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let { rememberForegroundApp(it) }
+        }
+    }
+
+    private fun rememberForegroundApp(intent: Intent) {
+        val pkg = intent.getStringExtra(BigDogHomeAccessibilityService.EXTRA_APP_PACKAGE) ?: return
+        val title = intent.getStringExtra(BigDogHomeAccessibilityService.EXTRA_APP_TITLE) ?: pkg
+        viewModel.onForegroundApp(this, pkg, title)
+    }
 
     private val packageChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -99,10 +111,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         registerSystemReceivers()
         viewModel.initialize(this)
+        rememberForegroundApp(intent)
+        if (intent.hasExtra(BigDogHomeAccessibilityService.EXTRA_INTERCEPT_REASON)) viewModel.returnToHome(this)
 
         setContent {
             BigDogLauncherTheme {
-                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                // Receive the onStop artwork release even while this window is hidden.
+                val uiState by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = androidx.lifecycle.Lifecycle.State.CREATED)
                 BigDogLauncherScreen(
                     viewModel = viewModel,
                     uiState = uiState
@@ -113,19 +128,34 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshDynamicSystemData(this)
+        viewModel.onLauncherResumed(this)
+        // initialize() already loads preferences/apps on a cold start. Avoid decoding all
+        // artwork twice while the first home frame is being composed on this low-memory TV.
+        if (!viewModel.uiState.value.isLoadingApps) viewModel.refreshDynamicSystemData(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewModel.onLauncherLeaving()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.onLauncherStopped()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        rememberForegroundApp(intent)
         // Home, app launchers and the existing Home interceptor all reuse this singleTask.
-        viewModel.returnToHome()
+        viewModel.returnToHome(this)
     }
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(packageChangeReceiver) }
         runCatching { unregisterReceiver(hardwareReceiver) }
+        runCatching { unregisterReceiver(foregroundAppReceiver) }
         runCatching { tvInputManager?.unregisterCallback(tvInputCallback) }
         super.onDestroy()
     }
@@ -143,9 +173,12 @@ class MainActivity : ComponentActivity() {
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(foregroundAppReceiver, IntentFilter(BigDogHomeAccessibilityService.ACTION_FOREGROUND_APP), Context.RECEIVER_NOT_EXPORTED)
             registerReceiver(packageChangeReceiver, pkgFilter, Context.RECEIVER_EXPORTED)
             registerReceiver(hardwareReceiver, usbFilter, Context.RECEIVER_EXPORTED)
         } else {
+            androidx.core.content.ContextCompat.registerReceiver(this, foregroundAppReceiver,
+                IntentFilter(BigDogHomeAccessibilityService.ACTION_FOREGROUND_APP), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
             registerReceiver(packageChangeReceiver, pkgFilter)
             registerReceiver(hardwareReceiver, usbFilter)
         }
@@ -159,7 +192,7 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_HOME) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                viewModel.returnToHome()
+                viewModel.returnToHome(this)
             }
             return true
         }
@@ -369,6 +402,7 @@ fun BigDogLauncherScreen(
                     B2SourceShelf(
                         source = uiState.heroSource,
                         heroApp = resolvedHeroApp,
+                        vlcPlayback = uiState.lastVlcPlayback,
                         inputs = uiState.inputsRow,
                         isDraft = uiState.isHeroDraft || !uiState.hasHeroHistory,
                         heroFocusRequester = heroFocusRequester,
@@ -383,7 +417,7 @@ fun BigDogLauncherScreen(
                             } else viewModel.onHeroTileClicked(context)
                         },
                         onChooseApp = { viewModel.setHeroSelectorOpen(true) },
-                        previewEnabled = !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen &&
+                        previewEnabled = uiState.isInputPreviewEnabled && !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen &&
                             !uiState.isSearchOverlayOpen && !uiState.isHeroSelectorOpen
                     )
 

@@ -15,6 +15,7 @@ import com.example.model.WallpaperSettings
 import com.example.model.WatchItem
 import com.example.model.WatchTab
 import com.example.model.HeroSource
+import com.example.model.VlcPlayback
 import org.json.JSONObject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -32,7 +33,8 @@ data class PersistedLauncherPrefs(
     val heroCustomLabel: String?,
     val customWatchItems: List<WatchItem>,
     val wallpaperSettings: WallpaperSettings,
-    val lastHeroSource: HeroSource? = null
+    val lastHeroSource: HeroSource? = null,
+    val lastVlcPlayback: VlcPlayback? = null
 )
 
 object LauncherPreferencesRepository {
@@ -49,6 +51,7 @@ object LauncherPreferencesRepository {
     private val KEY_WALLPAPER_BLUR = intPreferencesKey("wallpaper_blur_level")
     private val KEY_WALLPAPER_ANIMATION = booleanPreferencesKey("wallpaper_animation_enabled")
     private val KEY_LAST_SOURCE = stringPreferencesKey("last_entertainment_source_v1")
+    private val KEY_VLC_PLAYBACK = stringPreferencesKey("last_vlc_playback_v1")
 
     fun observePreferences(context: Context): Flow<PersistedLauncherPrefs> {
         return context.applicationContext.launcherDataStore.data.map { prefs ->
@@ -94,6 +97,14 @@ object LauncherPreferencesRepository {
                     blurLevel = blur,
                     animationEnabled = prefs[KEY_WALLPAPER_ANIMATION] ?: true
                 ),
+                lastVlcPlayback = prefs[KEY_VLC_PLAYBACK]?.let { raw ->
+                    runCatching {
+                        val json = JSONObject(raw)
+                        VlcPlayback(json.getString("title"), json.getString("id"),
+                            json.optLong("duration", 0), json.optLong("position", -1).takeIf { it >= 0 },
+                            json.optString("uri").takeIf { it.isNotBlank() })
+                    }.getOrNull()
+                },
                 lastHeroSource = prefs[KEY_LAST_SOURCE]?.let { raw ->
                     runCatching {
                         val json = JSONObject(raw)
@@ -110,6 +121,18 @@ object LauncherPreferencesRepository {
     suspend fun saveShowLeftSidebar(context: Context, show: Boolean) {
         context.applicationContext.launcherDataStore.edit { prefs ->
             prefs[KEY_SHOW_LEFT_SIDEBAR] = show
+        }
+    }
+
+    suspend fun saveVlcPlayback(context: Context, playback: VlcPlayback) {
+        context.applicationContext.launcherDataStore.edit { prefs ->
+            prefs[KEY_VLC_PLAYBACK] = JSONObject().apply {
+                put("title", playback.title)
+                put("id", playback.mediaId)
+                put("duration", playback.durationMs)
+                put("position", playback.positionMs ?: -1)
+                playback.mediaUri?.let { put("uri", it) }
+            }.toString()
         }
     }
 

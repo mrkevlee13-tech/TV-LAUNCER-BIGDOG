@@ -11,6 +11,7 @@ class HomeNavigationTest {
         val before = LauncherUiState(
             selectedRail = RailDestination.WALLPAPER,
             isInputFullScreen = true,
+            isInputPreviewEnabled = true,
             isQuickSettingsOpen = true,
             isHeroSelectorOpen = true,
             isAddToWatchDialogOpen = true,
@@ -23,11 +24,11 @@ class HomeNavigationTest {
         )
         val home = before.returnedHome()
         assertEquals(RailDestination.HOME, home.selectedRail)
-        assertFalse(home.isInputFullScreen || home.isQuickSettingsOpen || home.isHeroSelectorOpen ||
+        assertFalse(home.isInputFullScreen || home.isInputPreviewEnabled || home.isQuickSettingsOpen || home.isHeroSelectorOpen ||
             home.isAddToWatchDialogOpen || home.isAllAppsOverlayOpen || home.isSearchOverlayOpen)
         assertEquals(before, home.copy(
             selectedRail = before.selectedRail,
-            isInputFullScreen = true, isQuickSettingsOpen = true, isHeroSelectorOpen = true,
+            isInputFullScreen = true, isInputPreviewEnabled = true, isQuickSettingsOpen = true, isHeroSelectorOpen = true,
             isAddToWatchDialogOpen = true, isAllAppsOverlayOpen = true, isSearchOverlayOpen = true,
             homeReturnSequence = before.homeReturnSequence
         ))

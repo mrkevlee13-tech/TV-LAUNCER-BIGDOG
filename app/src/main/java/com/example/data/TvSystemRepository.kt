@@ -66,7 +66,8 @@ object TvSystemRepository {
      */
     fun queryAllInstalledTvApps(
         context: Context,
-        pinnedPackages: List<String>
+        pinnedPackages: List<String>,
+        includeArtwork: Boolean = true
     ): List<InstalledTvApp> {
         val pm = context.packageManager
         val selfPackage = context.packageName
@@ -111,10 +112,10 @@ object TvSystemRepository {
                         ?: pm.getApplicationIcon(appInfo)
                 }.getOrNull()
 
-                val bannerBitmap = bannerDrawable?.let {
+                val bannerBitmap = bannerDrawable?.takeIf { includeArtwork }?.let {
                     drawableToImageBitmap(it, targetWidth = 320, targetHeight = 180)
                 }
-                val iconBitmap = iconDrawable?.let {
+                val iconBitmap = iconDrawable?.takeIf { includeArtwork }?.let {
                     drawableToImageBitmap(it, targetWidth = 144, targetHeight = 144)
                 }
 
@@ -178,8 +179,8 @@ object TvSystemRepository {
                 packageName = pkgName,
                 activityName = (leanbackLaunch ?: standardLaunch)?.component?.className ?: "",
                 isLeanback = leanbackLaunch != null,
-                bannerBitmap = bannerDrawable?.let { drawableToImageBitmap(it, 320, 180) },
-                iconBitmap = iconDrawable?.let { drawableToImageBitmap(it, 144, 144) },
+                bannerBitmap = bannerDrawable?.takeIf { includeArtwork }?.let { drawableToImageBitmap(it, 320, 180) },
+                iconBitmap = iconDrawable?.takeIf { includeArtwork }?.let { drawableToImageBitmap(it, 144, 144) },
                 isPinned = pkgName in pinnedPackages,
                 isSystemApp = isSystem
             )

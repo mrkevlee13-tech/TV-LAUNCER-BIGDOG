@@ -6,6 +6,7 @@ import com.example.model.RailDestination
 internal fun LauncherUiState.returnedHome(): LauncherUiState = copy(
     selectedRail = RailDestination.HOME,
     isInputFullScreen = false,
+    isInputPreviewEnabled = false,
     isQuickSettingsOpen = false,
     isHeroSelectorOpen = false,
     isAddToWatchDialogOpen = false,

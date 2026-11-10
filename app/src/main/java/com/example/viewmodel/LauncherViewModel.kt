@@ -13,6 +13,9 @@ import com.example.data.LauncherPreferencesRepository
 import com.example.data.PersistedLauncherPrefs
 import com.example.data.TvSystemRepository
 import com.example.data.resolveHeroSource
+import com.example.data.VlcPlaybackRepository
+import com.example.data.mergeVlcPlayback
+import com.example.model.VlcPlayback
 import com.example.model.B2SampleCatalog
 import com.example.model.HeroSource
 import com.example.model.HardwareInputType
@@ -28,6 +31,7 @@ import com.example.model.WatchTab
 import com.example.ui.theme.Thumb01End
 import com.example.ui.theme.Thumb01Start
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +54,8 @@ data class LauncherUiState(
     val isHeroDraft: Boolean = false,
     val hasHeroHistory: Boolean = false,
     val isInputFullScreen: Boolean = false,
+    val isInputPreviewEnabled: Boolean = false,
+    val lastVlcPlayback: VlcPlayback? = null,
     val inputsRow: List<TvInputPillItem> = B2SampleCatalog.baselineInputsRow.filterNot { it.inputType == HardwareInputType.AV },
     val wallpaperSettings: WallpaperSettings = WallpaperSettings(),
     val customWallpaperBitmap: ImageBitmap? = null,
@@ -111,6 +117,52 @@ class LauncherViewModel : ViewModel() {
     private var hasStartedPrefsCollection = false
     private var lastOpenedSource: HeroSource? = null
     private var isOpeningMedia = false
+    private var launchedMediaPlayer: String? = null
+    private var isLauncherResumed = false
+    private var isReadingVlc = false
+    private var artworkReleased = false
+    private var pendingHeroLaunch: Job? = null
+
+    fun onLauncherStopped() {
+        artworkReleased = true
+        _uiState.update { state ->
+            state.copy(installedApps = state.installedApps.map { it.copy(bannerBitmap = null, iconBitmap = null) },
+                customWallpaperBitmap = null)
+        }
+    }
+
+    fun onLauncherLeaving() {
+        isLauncherResumed = false
+        _uiState.update { it.copy(isInputFullScreen = false, isInputPreviewEnabled = false) }
+    }
+
+    fun onLauncherResumed(context: Context) {
+        launchedMediaPlayer = null
+        isLauncherResumed = true
+        artworkReleased = false
+        refreshVlcPlayback(context)
+    }
+
+    private fun refreshVlcPlayback(context: Context) {
+        val source = _uiState.value.heroSource
+        if (!isLauncherResumed || isReadingVlc || source?.kind != "app" || source.target != VlcPlaybackRepository.PACKAGE) return
+        isReadingVlc = true
+        viewModelScope.launch {
+            try {
+                val observed = VlcPlaybackRepository.read(context) ?: return@launch
+                val merged = mergeVlcPlayback(_uiState.value.lastVlcPlayback, observed)
+                if (merged != _uiState.value.lastVlcPlayback) {
+                    _uiState.update { it.copy(lastVlcPlayback = merged) }
+                    LauncherPreferencesRepository.saveVlcPlayback(context, merged)
+                    Log.i("BigDogVLC", "Remembered last VLC title: ${merged.title}")
+                }
+            } finally { isReadingVlc = false }
+        }
+    }
+
+    fun onForegroundApp(context: Context, packageName: String, title: String) {
+        if (packageName != launchedMediaPlayer) rememberHeroSource(context, HeroSource("app", packageName, title))
+    }
 
     fun initialize(context: Context) {
         val appContext = context.applicationContext
@@ -142,19 +194,21 @@ class LauncherViewModel : ViewModel() {
         appContext: Context,
         prefs: PersistedLauncherPrefs
     ) {
+        val includeArtwork = !artworkReleased
         val result = withContext(Dispatchers.IO) {
             val apps = TvSystemRepository.queryAllInstalledTvApps(
                 context = appContext,
-                pinnedPackages = prefs.pinnedPackages
+                pinnedPackages = prefs.pinnedPackages,
+                includeArtwork = includeArtwork
             )
             val inputs = TvSystemRepository.queryHardwareInputs(appContext).filterNot { it.inputType == HardwareInputType.AV }
             val wifiName = TvSystemRepository.resolveWifiDisplayName(appContext)
             val qsTiles = TvSystemRepository.queryQuickSettingTiles(appContext, wifiName)
             val watchList = emptyList<WatchItem>()
-            val customWallBmp = TvSystemRepository.loadCustomWallpaperBitmap(
+            val customWallBmp = if (includeArtwork) TvSystemRepository.loadCustomWallpaperBitmap(
                 context = appContext,
                 uriString = prefs.wallpaperSettings.customImageUri
-            )
+            ) else null
             SystemReloadPayload(
                 apps = apps,
                 inputs = inputs,
@@ -169,7 +223,7 @@ class LauncherViewModel : ViewModel() {
             state.copy(
                 showLeftSidebar = prefs.showLeftSidebar,
                 hasSavedHomeSelection = prefs.hasSavedHomeSelection,
-                installedApps = result.apps,
+                installedApps = if (artworkReleased) result.apps.map { it.copy(bannerBitmap = null, iconBitmap = null) } else result.apps,
                 isLoadingApps = false,
                 heroPackageName = prefs.heroPackageName,
                 heroCustomLabel = prefs.heroCustomLabel,
@@ -178,14 +232,16 @@ class LauncherViewModel : ViewModel() {
                         HeroSource("app", it.packageName, it.name)
                     }),
                 hasHeroHistory = lastOpenedSource != null || prefs.lastHeroSource != null,
+                lastVlcPlayback = state.lastVlcPlayback ?: prefs.lastVlcPlayback,
                 inputsRow = result.inputs,
                 wifiDisplayName = result.wifiName,
                 quickSettingTiles = result.qsTiles,
                 watchItems = result.watchList,
                 wallpaperSettings = prefs.wallpaperSettings,
-                customWallpaperBitmap = result.customWallBmp
+                customWallpaperBitmap = if (artworkReleased) null else result.customWallBmp
             )
         }
+        refreshVlcPlayback(appContext)
     }
 
     private data class SystemReloadPayload(
@@ -207,8 +263,19 @@ class LauncherViewModel : ViewModel() {
         }
     }
 
-    fun returnToHome() {
+    fun returnToHome(context: Context) {
+        // Home wins over a slow file read or VLC connection that has not launched yet.
+        pendingHeroLaunch?.cancel()
+        pendingHeroLaunch = null
         _uiState.update { it.returnedHome() }
+        if (_uiState.value.heroSource?.target == VlcPlaybackRepository.PACKAGE ||
+            _uiState.value.lastVlcPlayback?.isPlaying == true) {
+            viewModelScope.launch {
+                VlcPlaybackRepository.pause(context)
+                kotlinx.coroutines.delay(250)
+                refreshVlcPlayback(context)
+            }
+        }
     }
 
     fun onSideRailClicked(context: Context, destination: RailDestination) {
@@ -292,6 +359,17 @@ class LauncherViewModel : ViewModel() {
 
     fun onHeroTileClicked(context: Context) {
         val source = _uiState.value.heroSource
+        val vlcPlayback = _uiState.value.lastVlcPlayback
+        if (source?.kind == "app" && source.target == VlcPlaybackRepository.PACKAGE && vlcPlayback != null) {
+            pendingHeroLaunch?.cancel()
+            pendingHeroLaunch = viewModelScope.launch {
+                if (!VlcPlaybackRepository.resume(context, vlcPlayback)) {
+                    showToast(context, "Unable to resume this video. Open it from VLC.")
+                    TvSystemRepository.launchPackageIfInstalled(context, VlcPlaybackRepository.PACKAGE)
+                }
+            }
+            return
+        }
         if (source?.kind == "input") {
             val input = _uiState.value.inputsRow.firstOrNull { it.id == source.target }
             if (input == null) { showToast(context, "Input unavailable"); return }
@@ -454,7 +532,8 @@ class LauncherViewModel : ViewModel() {
 
     fun onHardwareInputPillClicked(context: Context, input: TvInputPillItem) {
         _uiState.update {
-            it.copy(heroSource = HeroSource("input", input.id, input.label), isHeroDraft = true)
+            it.copy(heroSource = HeroSource("input", input.id, input.label), isHeroDraft = true,
+                isInputPreviewEnabled = true)
         }
     }
 
@@ -466,7 +545,9 @@ class LauncherViewModel : ViewModel() {
 
     private fun rememberHeroSource(context: Context, source: HeroSource) {
         lastOpenedSource = source
-        _uiState.update { it.copy(heroSource = source, isHeroDraft = false, hasHeroHistory = true) }
+        _uiState.update { it.copy(heroSource = source, isHeroDraft = false, hasHeroHistory = true,
+            isInputFullScreen = if (source.kind == "input") it.isInputFullScreen else false,
+            isInputPreviewEnabled = if (source.kind == "input") it.isInputPreviewEnabled else false) }
         viewModelScope.launch {
             runCatching { LauncherPreferencesRepository.saveLastHeroSource(context.applicationContext, source) }
                 .onFailure { showToast(context, "Unable to remember last source") }
@@ -488,7 +569,7 @@ class LauncherViewModel : ViewModel() {
     private fun launchHeroMedia(context: Context, source: HeroSource) {
         if (isOpeningMedia) return
         isOpeningMedia = true
-        viewModelScope.launch {
+        pendingHeroLaunch = viewModelScope.launch {
             try {
                 val readable = withContext(Dispatchers.IO) {
                     runCatching {
@@ -503,6 +584,7 @@ class LauncherViewModel : ViewModel() {
                     setDataAndType(Uri.parse(source.target), source.mimeType ?: "video/*")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
+                launchedMediaPlayer = intent.resolveActivity(context.packageManager)?.packageName
                 runCatching { context.startActivity(intent) }
                     .onSuccess { rememberHeroSource(context, source) }
                     .onFailure { showToast(context, "Unable to open ${source.title}. Re-select the file from USB.") }
