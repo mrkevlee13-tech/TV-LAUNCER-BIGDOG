@@ -3,6 +3,7 @@ package com.example.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -21,6 +22,7 @@ private val Context.launcherDataStore: DataStore<Preferences> by preferencesData
 )
 
 data class PersistedLauncherPrefs(
+    val showLeftSidebar: Boolean,
     val pinnedPackages: List<String>,
     val recentPackages: List<String>,
     val heroPackageName: String,
@@ -30,6 +32,7 @@ data class PersistedLauncherPrefs(
 )
 
 object LauncherPreferencesRepository {
+    private val KEY_SHOW_LEFT_SIDEBAR = booleanPreferencesKey("show_left_sidebar")
 
     private val KEY_PINNED_PACKAGES = stringPreferencesKey("pinned_packages_csv")
     private val KEY_RECENT_PACKAGES = stringPreferencesKey("recent_packages_csv")
@@ -71,6 +74,7 @@ object LauncherPreferencesRepository {
             val blur = (prefs[KEY_WALLPAPER_BLUR] ?: 0).coerceIn(0, 3)
 
             PersistedLauncherPrefs(
+                showLeftSidebar = prefs[KEY_SHOW_LEFT_SIDEBAR] ?: true,
                 pinnedPackages = pinnedList,
                 recentPackages = recentList,
                 heroPackageName = heroPkg,
@@ -83,6 +87,12 @@ object LauncherPreferencesRepository {
                     blurLevel = blur
                 )
             )
+        }
+    }
+
+    suspend fun saveShowLeftSidebar(context: Context, show: Boolean) {
+        context.applicationContext.launcherDataStore.edit { prefs ->
+            prefs[KEY_SHOW_LEFT_SIDEBAR] = show
         }
     }
 

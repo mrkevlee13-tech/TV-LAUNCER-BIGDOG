@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class LauncherUiState(
+    val showLeftSidebar: Boolean = true,
     val selectedRail: RailDestination = RailDestination.HOME,
     val selectedWatchTab: WatchTab = WatchTab.CONTINUE,
     val watchItems: List<WatchItem> = emptyList(),
@@ -158,6 +159,7 @@ class LauncherViewModel : ViewModel() {
 
         _uiState.update { state ->
             state.copy(
+                showLeftSidebar = prefs.showLeftSidebar,
                 installedApps = result.apps,
                 isLoadingApps = false,
                 heroPackageName = prefs.heroPackageName,
@@ -180,6 +182,16 @@ class LauncherViewModel : ViewModel() {
         val watchList: List<WatchItem>,
         val customWallBmp: ImageBitmap?
     )
+
+    fun setShowLeftSidebar(context: Context, show: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                LauncherPreferencesRepository.saveShowLeftSidebar(context.applicationContext, show)
+            }.onFailure {
+                showToast(context, "Unable to save sidebar preference")
+            }
+        }
+    }
 
     fun onSideRailClicked(context: Context, destination: RailDestination) {
         when (destination) {

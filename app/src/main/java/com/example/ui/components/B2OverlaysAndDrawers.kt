@@ -53,6 +53,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,6 +96,9 @@ import com.example.ui.theme.B2TileSurface
  */
 @Composable
 fun B2QuickSettingsOverlay(
+    showLeftSidebar: Boolean,
+    onShowLeftSidebarChange: (Boolean) -> Unit,
+    onOpenSearch: () -> Unit,
     isOpen: Boolean,
     tiles: List<QuickSettingTileItem>,
     rows: List<QuickSettingRowItem>,
@@ -97,7 +106,7 @@ fun B2QuickSettingsOverlay(
     onSelectAction: (String, String) -> Unit,
     onOpenWallpaperStudio: () -> Unit
 ) {
-    val firstTileFocusRequester = remember { FocusRequester() }
+    val sidebarToggleFocusRequester = remember { FocusRequester() }
     val scrollState = rememberScrollState()
 
     AnimatedVisibility(
@@ -123,7 +132,7 @@ fun B2QuickSettingsOverlay(
         exit = slideOutHorizontally(targetOffsetX = { it })
     ) {
         LaunchedEffect(Unit) {
-            runCatching { firstTileFocusRequester.requestFocus() }
+            runCatching { sidebarToggleFocusRequester.requestFocus() }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -172,6 +181,46 @@ fun B2QuickSettingsOverlay(
                     }
                 }
 
+                Text(
+                    text = "CUSTOM APP FUNCTIONS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = B2QuietText
+                )
+                TvFocusableSurface(
+                    itemId = "qs_show_left_sidebar",
+                    focusRequester = sidebarToggleFocusRequester,
+                    shape = RoundedCornerShape(12.dp),
+                    restingColor = B2TileSurface,
+                    focusedColor = B2RaisedSurface,
+                    focusScale = 1.03f,
+                    onClick = { onShowLeftSidebarChange(!showLeftSidebar) },
+                    modifier = Modifier.fillMaxWidth().requiredHeight(62.dp).semantics {
+                        role = Role.Switch
+                        toggleableState = ToggleableState(showLeftSidebar)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Show left sidebar", color = B2MainText,
+                                style = MaterialTheme.typography.bodyMedium)
+                            Text(if (showLeftSidebar) "On" else "Off - full width home",
+                                color = B2QuietText, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Switch(checked = showLeftSidebar, onCheckedChange = null)
+                    }
+                }
+                QuickSettingRowCard(
+                    row = QuickSettingRowItem(
+                        id = "qs_row_search", title = "Search apps", settingsAction = ""
+                    ),
+                    onClick = onOpenSearch,
+                    modifier = Modifier.fillMaxWidth().requiredHeight(50.dp)
+                )
+
                 val row1 = tiles.take(2)
                 val row2 = tiles.drop(2).take(2)
 
@@ -180,10 +229,10 @@ fun B2QuickSettingsOverlay(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        row1.forEachIndexed { index, tile ->
+                        row1.forEach { tile ->
                             QuickSettingTileCard(
                                 tile = tile,
-                                focusRequester = if (index == 0) firstTileFocusRequester else null,
+                                focusRequester = null,
                                 onClick = { onSelectAction(tile.settingsAction, tile.title) },
                                 modifier = Modifier
                                     .weight(1f)

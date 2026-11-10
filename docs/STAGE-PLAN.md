@@ -6,7 +6,7 @@ Created: 10 November 2026.
 
 1. Read this plan and `AGENTS.md` before starting work.
 2. Work on one step at a time. Keep edits focused on that step.
-3. Before coding, read the relevant source and compare it with the launcher-fixes notes and the original B2 handoff PDF. Record any mismatch; the notes' likely causes are guesses until checked.
+3. Before coding, read the relevant source and the current stage requirements. Kev clarified on 11 November 2026 that the original PDF is background context, not hard rules; his current requests guide optimisation and new features. Use the launcher-fixes notes as context, and check their guessed causes against the code.
 4. Explain the change, run appropriate local checks, and build the APK when app code changes. Automatically install every finished app update on the TV over ADB, verify the installed build and launch it before handing off the remote test. Kev has given standing permission for this. Preserve app data, compatible signing and the Home setup; report any connection or signing blocker instead of silently skipping installation. Never uninstall to bypass a signing mismatch.
 5. Give Kev the exact remote test steps and expected result. Kev handles committing and pushing unless he explicitly asks otherwise. Installation is the agent's responsibility under the standing permission in `AGENTS.md`.
 6. Stop at **Awaiting TV test**. A successful build or an ADB activity resolution does not count as a TV pass.
@@ -39,17 +39,18 @@ All steps remain unticked until Kev accepts the result.
 
 - [x] S1 — All TV settings works (original Fix 8, first part)
 - [x] S2 — Every Cast button opens SmartShare (original Fix 8 / Cast shortcuts)
-- [x] S3 — Settings shortcuts accepted by Kev; black-screen return issue tracked in S12 (original Fix 8)
-- [ ] S4 — App artwork has no duplicate title (original Fix 1)
-- [ ] S5 — All apps takes and keeps focus (original Fix 2)
-- [ ] S6 — Select apps, show HOME badges, then Confirm (original Fix 3)
-- [ ] S7 — HDMI / AV state, preview and full screen work (original Fix 4)
-- [ ] S8 — Better wallpapers and animation controls (original Fix 5)
-- [ ] S9 — Wallpaper preview follows the highlighted preset (original Fix 6)
-- [ ] S10 — Home always returns to BigDog home (original Fix 7)
-- S11 — Reserved following Kev's requested renumbering; no work assigned
-- [ ] S12 — Settings backdrop and reliable return to BigDog
-- [ ] S13 — Final restart and regression test (previously S11)
+- [x] S3 — Settings shortcuts accepted by Kev; black-screen return issue tracked in S13 (original Fix 8)
+- [x] S4 — Show or hide the left sidebar in BigDog custom settings
+- [x] S5 — App artwork has no duplicate title (original Fix 1)
+- [ ] S6 — All apps takes and keeps focus (original Fix 2)
+- [ ] S7 — Select apps, show HOME badges, then Confirm (original Fix 3)
+- [ ] S8 — HDMI / AV state, preview and full screen work (original Fix 4)
+- [ ] S9 — Better wallpapers and animation controls (original Fix 5)
+- [ ] S10 — Wallpaper preview follows the highlighted preset (original Fix 6)
+- [ ] S11 — Home always returns to BigDog home (original Fix 7)
+- S12 — Reserved following Kev's requested renumbering; no work assigned
+- [ ] S13 — Settings backdrop and reliable return to BigDog
+- [ ] S14 — Final restart and regression test (previously S12)
 
 ## S1 — All TV settings
 
@@ -75,15 +76,15 @@ Route the header Cast button, quick-settings Cast tile and Screen cast input pil
 
 ## S3 — Remaining settings shortcuts
 
-**Status: accepted by Kev.** Following the Wi-Fi confirmation, Kev clarified **yes but s3 is working**, accepting S3 as a stage. The main S3 checkbox is now ticked. The intermittent black screen when returning remains unresolved and is explicitly deferred to S12; it is not counted as a successful return test. Shared settings-launch failure logging is implemented, built and installed. The logging and earlier S12/S13 plan changes were committed and synced to `main` as `004702d`; this acceptance update is saved locally.
+**Status: accepted by Kev.** Following the Wi-Fi confirmation, Kev clarified **yes but s3 is working**, accepting S3 as a stage. The main S3 checkbox is now ticked. The intermittent black screen when returning remains unresolved and is explicitly deferred to S13; it is not counted as a successful return test. Shared settings-launch failure logging is implemented, built and installed. The logging and earlier S13/S14 plan changes were committed and synced to `main` as `004702d`; the S3 acceptance was subsequently committed and synced in `9d6509f`.
 
-**Next stage: S4 — implemented and awaiting TV test.** The checklist below preserves individual test records: Wi-Fi was specifically reported working; the other seven groups were not individually reported or tested by the agent. Their empty boxes are not a claim that they fail and do not override Kev's overall S3 acceptance. Revisit any shortcut if Kev reports a problem.
+**Next stage: S6 - All apps focus, not started.** S4 sidebar visibility and S5 banner titles were accepted by Kev on 11 November 2026. The checklist below preserves individual test records: Wi-Fi was specifically reported working; the other seven groups were not individually reported or tested by the agent. Their empty boxes are not a claim that they fail and do not override Kev's overall S3 acceptance. Revisit any shortcut if Kev reports a problem.
 
 Test and repair **one shortcut at a time**, including duplicate buttons. Stop for Kev's confirmation before working on the next shortcut below. The S1 main settings screen is the fallback; if that is unavailable, show a clear message. Log failures instead of swallowing them silently.
 
 Standard actions come first. Check Xiaomi alternatives against the actual TV before choosing them. The audit found standard handlers for Wi-Fi, Bluetooth, storage, sound and date/time in the disabled packages. Neither settings package registered the standard display, wireless/network or Cast action.
 
-- [x] Wi-Fi — settings opening confirmed; intermittent black-screen return deferred to S12 at Kev's request
+- [x] Wi-Fi — settings opening confirmed; intermittent black-screen return deferred to S13 at Kev's request
 - [ ] Bluetooth — header button and quick tile
 - [ ] Display and picture — consider Xiaomi `DISPLAYSOUND_SETTINGS`
 - [ ] Sound
@@ -96,23 +97,35 @@ Xiaomi alternatives use the `com.xiaomi.mitv.settings.` prefix and remain blocke
 
 **TV test for each shortcut:** focus it, press OK, and confirm the intended screen appears. If only main settings is available, explain that fallback on screen. If neither works, expect a clear unavailable message. Verify arrows, OK and Back. For USB, use a drive if available and check the agreed destination. Do not toggle Wi-Fi, unpair the remote or alter other TV settings just to test navigation.
 
-## S4 — Remove duplicate app titles
+## S4 — Show or hide the left sidebar
+
+**Status: accepted by Kev, 11 November 2026.** Added **Show left sidebar** in BigDog quick settings under **Custom app functions**. It defaults to On and saves in the existing DataStore. The original PDF is background context, as clarified by Kev; the current sidebar request defines this change.
+
+When disabled, remove the sidebar's reserved width so home content uses the available screen area. Keep a clearly reachable settings control outside the sidebar so the user can turn it back on with the remote. Inspect the current layout and focus handling before coding. Hidden controls must not receive focus; move focus to a visible home control if necessary. Preserve access to sidebar destinations through suitable remaining controls, with predictable arrows, OK, Back and Home.
+
+**TV test:** open BigDog settings, find custom app functions and switch Show left sidebar off. Expect the bar and its empty space to disappear and home content to expand. Navigate home, reopen settings through the remaining visible control and restore the sidebar. Expect usable focus in both modes. Hide it again, restart the app and then the TV, and confirm the choice persists and settings remains reachable.
+
+**Accepted result - 11 November 2026:** Kev replied **perfect** to the installed S4 update and requested committing, syncing and marking S4 complete. Stage acceptance is recorded; no separate full TV restart test was reported. The separate S13 issue remains open.
+
+## S5 — Remove duplicate app titles
 
 Remove BigDog's title overlay from banner artwork in the apps row and All apps. Keep names for tiles that use a plain icon instead of a banner. Keep titles on Continue, Next episode and To Watch thumbnails.
 
 **TV test:** inspect banner apps and icon-only apps in both places. Expect no extra title over a banner, readable names on icon-only tiles, and unchanged watch-thumbnail titles. Move focus and launch an app with OK.
 
-**Implementation — 11 November 2026; Awaiting TV test:** the home row and All apps share `DynamicInstalledAppTile`. Removed the banner branch's duplicate name and its dark text shade; retained the app-name content description, icon/fallback names, focus surface and HOME badge. Other consumers of this shared tile also receive the same banner treatment. Watch-thumbnail and hero rendering are unchanged. The PDF originally specified names on app tiles; the later fix notes and accepted S4 plan refine this to names only on icon fallback tiles.
+**Implementation — 11 November 2026; accepted by Kev:** the home row and All apps share `DynamicInstalledAppTile`. Removed the banner branch's duplicate name and its dark text shade; retained the app-name content description, icon/fallback names, focus surface and HOME badge. Other consumers of this shared tile also receive the same banner treatment. Watch-thumbnail and hero rendering are unchanged. The PDF originally specified names on app tiles; the later fix notes and accepted S5 plan refine this to names only on icon fallback tiles.
 
-**Validation and deployment:** `:app:assembleDebug` passed (38 tasks, 4 executed), and `git diff --check` passed. The existing SDK XML warning was nonfatal. Signed the deployment copy `%TEMP%\bigdog-apk-verify\BigDog-S4-signed.apk` with the existing matching key outside Git, verified its certificate against the installed APK, then installed in place with `adb install -r`. VersionCode `1`, versionName `1.0`, TV lastUpdateTime `2026-11-11 00:00:06`. Installed SHA-256 matches the deployment file: `f82d6ecb38e2379c1a356eaad95e1289fc38312eadc7fff2ca41b3503eeeea90`. Initial cold-start wait timed out; a follow-up start returned `Status: ok`. No AndroidRuntime/ActivityManager errors appeared in the checked recent logs. This does not resolve or validate the separate S12 black-screen issue. No package states, signing configuration or app data were changed.
+**Validation and deployment:** `:app:assembleDebug` passed (38 tasks, 4 executed), and `git diff --check` passed. The existing SDK XML warning was nonfatal. Signed the deployment copy `%TEMP%\bigdog-apk-verify\BigDog-S4-signed.apk` with the existing matching key outside Git, verified its certificate against the installed APK, then installed in place with `adb install -r`. VersionCode `1`, versionName `1.0`, TV lastUpdateTime `2026-11-11 00:00:06`. Installed SHA-256 matches the deployment file: `f82d6ecb38e2379c1a356eaad95e1289fc38312eadc7fff2ca41b3503eeeea90`. Initial cold-start wait timed out; a follow-up start returned `Status: ok`. No AndroidRuntime/ActivityManager errors appeared in the checked recent logs. This does not resolve or validate the separate S13 black-screen issue. No package states, signing configuration or app data were changed.
 
-## S5 — All apps focus
+**Accepted result - 11 November 2026:** Kev confirmed S5 was already updated and explicitly requested it be ticked complete. S5 is accepted; no separate per-tile test results or restart test are claimed.
+
+## S6 — All apps focus
 
 Move focus straight into All apps when it opens, keep the home controls underneath from taking focus, and restore focus to the opener when Back closes it. Inspect the current focus handling before choosing an implementation.
 
 **TV test:** open All apps from the side rail and then from the home-row tile. Expect the first app to be focused immediately. The first Right press moves within the overlay; arrows cannot reach the home screen underneath. OK opens the selected app. Back closes the overlay and returns focus to its opener.
 
-## S6 — App selection and Confirm
+## S7 — App selection and Confirm
 
 Replace the pin-mode step with direct selection in the app selection view. Existing home apps start selected. Selecting a tile toggles its green HOME badge. Confirm saves the draft; Back or Cancel discards it.
 
@@ -120,15 +133,15 @@ Check and report the real home-row capacity before coding. The current source sh
 
 **TV test:** open selection, select two apps and deselect one. Expect badges to follow the draft. Confirm and check the home row, then reopen and verify saved selection. Change the draft and use Cancel, then repeat with Back; both must leave saved pins unchanged. Test the agreed capacity or overflow behaviour.
 
-## S7 — HDMI and AV
+## S8 — HDMI and AV
 
 Start with read-only input diagnostics, including `dumpsys tv_input`, actual input IDs and signal states. The source already contains input-state queries and pass-through launch attempts; verify why they fail rather than assuming these are missing.
 
 Work separately on real state reporting, opening a connected input, then live preview and full screen. Stop for confirmation after each part. If `com.xiaomi.mitv.tvplayer` or another disabled package is needed, propose a separate controlled package test first and record its outcome and final state.
 
-**TV test:** with the PS5 on, identify its HDMI port. Expect that input to report the actual signal state, show a live preview on selection, and go full screen when the preview is selected. Back leaves it. Check an empty HDMI port and AV where possible: no false Connected state or unwanted launch. If the TV cannot provide a requested capability, report the limitation and agree an alternative before ticking S7.
+**TV test:** with the PS5 on, identify its HDMI port. Expect that input to report the actual signal state, show a live preview on selection, and go full screen when the preview is selected. Back leaves it. Check an empty HDMI port and AV where possible: no false Connected state or unwanted launch. If the TV cannot provide a requested capability, report the limitation and agree an alternative before ticking S8.
 
-## S8 — Wallpapers and animation
+## S9 — Wallpapers and animation
 
 Improve the preset artwork while keeping Dim, optional Blur and custom photos. Inspect the existing animation code first. Provide cheap animation and an on/off control for the current wallpaper, pause animation while BigDog is not visible, and persist the choice.
 
@@ -136,23 +149,23 @@ Work on preset appearance first, then animation controls and lifecycle behaviour
 
 **TV test:** browse every preset and adjust Dim and Blur with the remote. Expect Kev to be happy with the appearance. Switch animation on and off, open another app, then return. Expect smooth motion, responsive navigation and animation paused while away. Apply a preset and a custom photo in separate tests; restart and check that the saved choice and controls persist.
 
-## S9 — Wallpaper preview
+## S10 — Wallpaper preview
 
 Show a recognisable miniature home layout over the highlighted draft wallpaper. Highlighting a preset must update the preview before Set wallpaper. Do not save the draft just because focus moved.
 
 **TV test:** move between presets with arrows without applying. Expect the preview to change immediately. Back must leave the saved wallpaper unchanged. Reopen, choose a preset and apply it; expect the real home screen to match the chosen wallpaper.
 
-## S10 — Home button
+## S11 — Home button
 
 Inspect `MainActivity`, navigation state, the manifest and the accessibility service. Handle returning Home to the existing launcher instance so it closes in-app screens and overlays, returns to the home stage and restores sensible focus. Preserve the existing external Home override setup.
 
 **TV test:** press Home from wallpaper/appearance, All apps, quick settings and Search, then from another app. Expect BigDog home each time, with no leftover overlay and a visible usable focus. Check Back still works independently.
 
-## S11 — Reserved
+## S12 — Reserved
 
-Kev requested the new settings presentation work as S12 and the existing final check moved from S11 to S13. No additional S11 task has been invented.
+Kev requested the new settings presentation work as S13 and the existing final check moved from S12 to S14. No additional S12 task has been invented.
 
-## S12 — Settings backdrop and reliable return
+## S13 — Settings backdrop and reliable return
 
 **Requested by Kev — 10 November 2026:** Wi-Fi settings opens, but the settings screen has a black background. On returning, BigDog sometimes appears frozen on black until repeated Back or Home presses. Kev reports no home-screen crash so far; this is an observation, not a verified diagnosis. He asked to schedule this separately from S3.
 
@@ -164,21 +177,32 @@ Distinguish BigDog's own quick-settings panel from external Android/Xiaomi setti
 
 **TV test, return reliability:** repeatedly open Wi-Fi from the header and quick panel, navigate without changing settings, and Back out one level at a time. Expect BigDog to reappear promptly with visible usable focus and no persistent black screen or repeated key presses. Check Home from settings too. Record any remaining failure separately from whether the settings shortcut opens.
 
-**TV test, presentation:** verify each supported settings entry shows the intended home backdrop, dim and slight blur; settings alone receives focus while open. Closing it restores normal home appearance and focus. Check responsiveness and record any external screens that must retain their own background. Only accept S12 after Kev confirms the result or explicitly accepts a documented limitation.
+**TV test, presentation:** verify each supported settings entry shows the intended home backdrop, dim and slight blur; settings alone receives focus while open. Closing it restores normal home appearance and focus. Check responsiveness and record any external screens that must retain their own background. Only accept S13 after Kev confirms the result or explicitly accepts a documented limitation.
 
-## S13 — Final TV check (previously S11)
+## S14 — Final TV check (previously S12)
 
 Run this only after earlier stages have been accepted or explicitly deferred by Kev. List any deferred work; do not silently treat it as passed.
 
 **TV test:** restart the TV normally. Expect it to land on BigDog, with Home still working. Check saved pins, wallpaper and animation choice. Open an app, the settings screen, SmartShare and the PS5 input. Check an empty input and exercise arrows, OK and Back across the launcher. Confirm no package was left in an unagreed state.
 
-## Current handoff — S4, 11 November 2026
+## Current handoff — S4 sidebar option, 11 November 2026
 
-**Status: Awaiting TV test.** S3 is accepted by Kev. S4 is implemented, built and installed as recorded above, but remains unticked pending his confirmation. Test banner and icon-only tiles in the home row and All apps, watch-thumbnail titles, visible focus, OK launch and Back. S5 has not started. On 11 November 2026, Kev requested committing and syncing the S3 acceptance and S4 update to GitHub. That version-control request is not recorded as S4 TV acceptance.
+**Status: S4 and S5 accepted by Kev on 11 November 2026.** S1-S5 are ticked complete. Kev confirmed S4 with **perfect**, explicitly accepted S5, and requested saving, committing and syncing. S6 is next and has not started. No later stage was implemented in this pass.
+
+- Added **Custom app functions > Show left sidebar** to quick settings. The sidebar defaults to visible, its saved Boolean preference survives restarts, and removing it releases its full 88dp width to the home content.
+- Added **Search apps** in quick settings so hiding the rail does not remove Search access. The header settings button, home hero, All apps tile, input row and existing wallpaper-settings row retain the other routes. The wallpaper screen retains Back to home.
+- Quick settings initially focuses the toggle. Home controls cannot receive focus while that panel is open; closing it requests focus on the visible header settings control. The sidebar is removed from composition when hidden, so hidden rail controls cannot take focus.
+- Validation: `:app:assembleDebug` passed (38 tasks, 4 executed); `git diff --check` passed. Existing SDK XML warning remains nonfatal. TV connection is `192.168.3.19:5555`, device state `device`.
+- Deployment: signed `%TEMP%\bigdog-apk-verify\BigDog-S4-sidebar-signed.apk` with the existing key outside Git. Certificate matched the prior installed APK; `adb install -r` succeeded, preserving app data. Installed SHA-256 matches: `a724aca74308cc5743f59cf2658c05533ae30c1c5567728d10e7bb8c3888aff9`. VersionCode `1`, versionName `1.0`, lastUpdateTime `2026-11-11 00:13:00`.
+- Launch: initial cold-start wait timed out; follow-up returned `Status: ok`, with BigDog resumed and owning the focused window. No errors appeared in the checked recent AndroidRuntime/ActivityManager logs. This does not resolve the separate S13 return/black-screen issue.
+- Basic ADB UI checks showed the toggle receiving focus and changing On/Off with OK, and the close button restoring focus to the header settings button. Restored sidebar On. UI dumps intermittently returned a null root during transitions; automated Back checks were inconclusive. Kev subsequently accepted S4 overall; no individual Back or restart test results were supplied.
+- Remote test: open the header quick-settings button; toggle **Custom app functions > Show left sidebar** Off with OK, then close with Back. Expect the sidebar and its reserved space to disappear and usable visible focus. Reopen through the header, check Search apps and wallpaper access, and restore On. Check All apps, hero and inputs remain reachable. Hide again, restart the app and TV when convenient, and confirm Off persists and settings stays accessible. If Back sticks or shows black, report it; do not count that as passed.
+- Kev authorised commit and sync of the accepted changes. S6 is next; do not start it until requested. The app build is already installed and verified; this acceptance update changes documentation only, so no new build/install is needed.
+
 
 ## Previous S3 handoff — 10 November 2026
 
-**Status: S3 accepted by Kev; return issue deferred to S12.** Kev first confirmed **wifi settings working**, then clarified **yes but s3 is working**. S3 is ticked on that overall confirmation. Reliable return is not recorded as passed, and no additional individual shortcut tests are claimed.
+**Status: S3 accepted by Kev; return issue deferred to S13.** Kev first confirmed **wifi settings working**, then clarified **yes but s3 is working**. S3 is ticked on that overall confirmation. Reliable return is not recorded as passed, and no additional individual shortcut tests are claimed.
 
 - Both the header Wi-Fi pill and quick tile already use `android.settings.WIFI_SETTINGS` through the shared view-model handler. This matches the PDF's standard-action-first approach. The notes' blocked-settings diagnosis no longer applies to Wi-Fi after S1: the action now resolves and launches `com.android.tv.settings/.connectivity.NetworkActivity` with `Status: ok`. Main Settings also resolves. No Xiaomi alternative is needed.
 - Added warning/error logs under `BigDogSettings` for failed primary and fallback launches, including the action and exception. Existing routing, fallback and on-screen messages are preserved. No other shortcut was repaired or tested; no TV settings or package states changed.
@@ -187,7 +211,7 @@ Run this only after earlier stages have been accepted or explicitly deferred by 
 - Installed versionCode `1`, versionName `1.0`, lastUpdateTime `2026-11-10 23:51:17`. Installed APK hash matches the signed deployment copy: `6e9e85b0cca1a576d3a5f05cac2d120ae960b594c1ac4e41e54f8ec66bc1e981`.
 - Initial cold-start wait timed out; follow-up returned `Status: ok` in 7 ms. BigDog is resumed and owns the focused window. No errors appeared in the checked recent AndroidRuntime/ActivityManager/BigDogSettings logs.
 - **Remote test:** open the header Wi-Fi pill with arrows and OK. Inspect the network screen without changing settings, then Back to BigDog. Repeat through quick settings → Wi-Fi. Both should open the same network screen with usable focus and navigation. Back may return to the still-open quick panel; close it with another Back. Check Home returns to BigDog. Do not toggle Wi-Fi or disconnect the TV.
-- Next stage: S4, not started. S12 is planned separately at Kev's request; the former S11 final check is now S13, with S11 reserved. This acceptance update is documentation only, so no new APK build/install is required. Commit `004702d` contains the logging and earlier plan changes; this follow-up acceptance has not been committed or synced.
+- Next stage: S5, not started. S13 is planned separately at Kev's request; the former S12 final check is now S14, with S12 reserved. This acceptance update is documentation only, so no new APK build/install is required. Commit `004702d` contains the logging and earlier plan changes; this follow-up acceptance has not been committed or synced.
 
 ## Previous S2 handoff (superseded by S3 Wi-Fi above)
 
@@ -206,11 +230,13 @@ For every future handoff, update this section with the active step, what changed
 
 ## Acceptance record
 
-Only record acceptance after Kev confirms it. Include individual S3 shortcuts and the separate parts of S7/S8 when tested.
+Only record acceptance after Kev confirms it. Include individual S3 shortcuts and the separate parts of S8/S9 when tested.
 
 | Step | Change / build tested | TV result | Kev's confirmation and date |
 | --- | --- | --- | --- |
 | S1 | Enabled only `com.android.tv.settings`; existing APK, no code change | Main settings resolved and launched; Kev confirmed the remote test worked | "Works — keep settings enabled", 10 November 2026 |
 | S2 | Three Cast controls routed to SmartShare; build passed; matching signed APK installed and hash-verified at 23:46:16 | Kev confirmed SmartShare works; specific casting platform not reported | "smart share working. update, save and sync", 10 November 2026 |
-| S3 Wi-Fi opening | Existing standard route plus shared failure logging; signed APK installed at 23:51:17 | Settings opens. Intermittent black screen on return remains unresolved and is deferred to S12; no full return-navigation pass claimed | "wifi settings working", with black-screen report and request for S12, 10 November 2026 |
-| S3 overall | Same installed build; no further app changes | Kev accepted the stage overall. Other shortcut results were not individually supplied; black-screen return remains open under S12 | "yes but s3 is working", 10 November 2026 |
+| S3 Wi-Fi opening | Existing standard route plus shared failure logging; signed APK installed at 23:51:17 | Settings opens. Intermittent black screen on return remains unresolved and is deferred to S13; no full return-navigation pass claimed | "wifi settings working", with black-screen report and request for S13, 10 November 2026 |
+| S3 overall | Same installed build; no further app changes | Kev accepted the stage overall. Other shortcut results were not individually supplied; black-screen return remains open under S13 | "yes but s3 is working", 10 November 2026 |
+| S4 | Sidebar toggle, persisted preference, full-width layout and retained settings/Search access; signed APK installed at 00:13:00 | Kev accepted the stage overall; full TV restart was not separately reported | "perfect", with request to commit, sync and mark complete, 11 November 2026 |
+| S5 | Duplicate banner labels removed; icon fallback names retained; included in installed S4 build | Kev explicitly accepted S5 as already updated and requested it be ticked complete | Explicit S5 completion confirmation, 11 November 2026 |

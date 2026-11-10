@@ -31,9 +31,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -162,6 +164,7 @@ fun BigDogLauncherScreen(
 ) {
     val context = LocalContext.current
     val heroFocusRequester = remember { FocusRequester() }
+    val settingsFocusRequester = remember { FocusRequester() }
     val scrollState = rememberScrollState()
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -179,6 +182,19 @@ fun BigDogLauncherScreen(
     LaunchedEffect(Unit) {
         delay(120L)
         runCatching { heroFocusRequester.requestFocus() }
+    }
+
+    // Restore focus to a visible control after settings, including when the rail is hidden.
+    var settingsWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(uiState.isQuickSettingsOpen) {
+        if (!uiState.isQuickSettingsOpen && settingsWasOpen &&
+            uiState.selectedRail != RailDestination.WALLPAPER &&
+            !uiState.isSearchOverlayOpen
+        ) {
+            delay(300L)
+            runCatching { settingsFocusRequester.requestFocus() }
+        }
+        settingsWasOpen = uiState.isQuickSettingsOpen
     }
 
     BackHandler(
@@ -223,9 +239,11 @@ fun BigDogLauncherScreen(
             customBitmap = uiState.customWallpaperBitmap
         )
 
-        Row(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize().focusProperties {
+            canFocus = !uiState.isQuickSettingsOpen
+        }) {
             // Left 88dp Side Rail (#0B0D0F)
-            B2SideRail(
+            if (uiState.showLeftSidebar) B2SideRail(
                 selectedDestination = uiState.selectedRail,
                 onSelectDestination = { destination ->
                     viewModel.onSideRailClicked(context, destination)
@@ -270,6 +288,7 @@ fun BigDogLauncherScreen(
                     verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
                     B2HeaderBar(
+                        settingsFocusRequester = settingsFocusRequester,
                         wifiDisplayName = uiState.wifiDisplayName,
                         onOpenSettingAction = { action, label ->
                             viewModel.launchSettingsWithFallback(context, action, label)
@@ -310,6 +329,11 @@ fun BigDogLauncherScreen(
 
         // Slide-over 460dp Quick Settings Panel (#15181B) with scrollable non-squashed 50dp rows
         B2QuickSettingsOverlay(
+            showLeftSidebar = uiState.showLeftSidebar,
+            onShowLeftSidebarChange = { viewModel.setShowLeftSidebar(context, it) },
+            onOpenSearch = {
+                viewModel.onSideRailClicked(context, RailDestination.SEARCH)
+            },
             isOpen = uiState.isQuickSettingsOpen,
             tiles = uiState.quickSettingTiles,
             rows = uiState.quickSettingRows,

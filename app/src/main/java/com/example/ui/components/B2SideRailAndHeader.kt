@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -204,6 +205,7 @@ private fun railIconFor(destination: RailDestination, isSelected: Boolean): Imag
  */
 @Composable
 fun B2HeaderBar(
+    settingsFocusRequester: FocusRequester,
     wifiDisplayName: String,
     onOpenSettingAction: (String, String) -> Unit,
     onOpenQuickSettings: () -> Unit,
@@ -304,6 +306,7 @@ fun B2HeaderBar(
             // Round 44dp Quick Settings Button
             HeaderCircleButton(
                 id = "header_quick_settings_button",
+                focusRequester = settingsFocusRequester,
                 label = "Quick settings",
                 icon = Icons.Outlined.Tune,
                 onClick = onOpenQuickSettings
@@ -314,6 +317,7 @@ fun B2HeaderBar(
 
 @Composable
 private fun HeaderCircleButton(
+    focusRequester: FocusRequester? = null,
     id: String,
     label: String,
     icon: ImageVector,
@@ -321,6 +325,7 @@ private fun HeaderCircleButton(
 ) {
     TvFocusableSurface(
         itemId = id,
+        focusRequester = focusRequester,
         shape = CircleShape,
         restingColor = B2TileSurface,
         focusedColor = B2RaisedSurface,
