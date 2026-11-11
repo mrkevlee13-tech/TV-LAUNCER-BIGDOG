@@ -2,9 +2,9 @@
 
 Updated: **11 November 2026 (Asia/Shanghai)**. Kev approved the summary of his new notes and explicitly requested **animation, wallpapers, appearance and logo setup first**. This overrides the previous implementation order.
 
-Use **S1–S11 below** from now on. Each request has one owning stage; the cross-reference table shows where the previous S1–S5 work moved. The [previous S1–S5 plan](archive/STAGE-PLAN-S1-S5-before-notes-2026-11-11.md) and [original plan/history](archive/STAGE-PLAN-before-renumbering-2026-11-11.md) are archived, not parallel task lists.
+Use **S1–S12 below** from now on. Each request has one owning stage; the cross-reference table shows where the previous S1–S5 work moved. The [previous S1–S5 plan](archive/STAGE-PLAN-S1-S5-before-notes-2026-11-11.md) and [original plan/history](archive/STAGE-PLAN-before-renumbering-2026-11-11.md) are archived, not parallel task lists.
 
-S1, S2, S3 and S7 have been confirmed by Kev as complete. S2/S3 were accepted together; S7 was accepted after the TV Bro remote test, all on 11 November 2026. The remaining unchecked stages have not started.
+S1, S2, S3 and S7 have been confirmed by Kev as complete. S2/S3 were accepted together; S7 was accepted after the TV Bro remote test, all on 11 November 2026. S12 is currently in implementation; it is not accepted until its TV test passes.
 
 ## Current stage list
 
@@ -19,6 +19,9 @@ S1, S2, S3 and S7 have been confirmed by Kev as complete. S2/S3 were accepted to
 - [ ] **S9 — Settings backdrop and presentation** — previous S4; external settings presentation is separate from S1's Home/wallpaper appearance.
 - [ ] **S10 — TV boot-to-BigDog and Redmi splash feasibility** — investigate firmware boot branding separately from BigDog's own S1 startup animation.
 - [ ] **S11 — Restart, saved-state and full remote regression test** — previous S5, extended to all new features.
+- [ ] **S12 — Home inputs, appearance controls and Quick Settings refresh** — Kev's new combined request: align Inputs at the right edge; split Wallpaper and Appearance; add saved custom accent color and Apply controls; reverse-loop live preview; redesign Quick Settings as compact icon-only shortcuts, remove duplicate Wi-Fi/Cast shortcuts, place Wallpaper/Appearance/USB/folders there, and put All TV Settings first.
+
+S12 extends accepted S1 (wallpaper and visual appearance) and S3 (Home input visuals) without reopening or undoing their accepted baseline. Quick Settings has no previous stage owner, so S12 owns its compact shortcut layout and ordering. S1/S3 acceptance remains recorded; S12 itself stays open until Kev's TV test.
 
 ## Working rules
 
@@ -183,6 +186,16 @@ Start read-only; record actual support, native Home restrictions and any require
 **Previous S5 retained and extended.** Run after earlier stages are accepted or explicitly deferred; record every agreed limit.
 
 **TV test:** normal TV restart into BigDog; new branding/default animation/gallery and saved wallpaper/motion/dim/blur; icon size, Home order/selection and folder shortcuts; single/double Home, Clear all and VPN survival; Hero information and full-screen HDMI without overlay; truthful connected-versus-signal states; USB/VLC picture/sound on TV/ARC, pause/resume/title/position and missing-media handling; browser, SmartShare and settings Back/Home. Check focus/arrows/OK/long-press/Back across all controls. AV and redundant watch shortcuts remain absent. Confirm package/signing/data and unrelated TV settings remain intact. Do not count installation restarts or decoded frames alone as a TV pass.
+
+## S12 — Home inputs, appearance controls and Quick Settings refresh
+
+**New combined request from Kev, extending accepted S1 and S3 without reopening them.** Keep the Input icons closer to the right edge, away from Hero, and align the icons even when USB shows its drive name below. Keep USB distinct in Quick Settings; remove duplicate Wi-Fi and Cast shortcuts because those already have header controls. Rebuild the panel shortcuts as compact icon-only remote targets for Wallpaper, Appearance, Folders, USB and Search, with accessible names and visible focus. Put All TV Settings first in its list.
+
+Separate Wallpaper and Appearance into distinct views, keep Apply as the save action, and add persistent accent-color choices affecting interface icons and borders. The live wallpaper thumbnail should drift forward and reverse continuously. Preserve existing wallpaper and size controls, saved values, app package/signing and Home/Back behaviour.
+
+**Implementation in progress:** Inputs are right-aligned with a fixed icon row and label/status slots. Quick Settings omits Wi-Fi/Cast tiles, has compact icon-only shortcuts, and sorts All TV Settings first; the sidebar setting remains a labeled switch. Wallpaper/Appearance are separate views, with one Apply action per view, six saved accent swatches, and accent-tinted Hero/input styling. The live wallpaper thumbnail plays the supplied video with the requested pulse. To avoid decoder competition on the TV, the Wallpaper screen's large backdrop stays still while the thumbnail uses the single video decoder. The Samsung 980 label has a wider tile and taller text slot. Build succeeded and the latest APK was installed with `adb install -r`, preserving app data/Home setup. Installed app is version **Version2** (code 2), updated 11 November 2026 16:16:16. Pulled installed APK SHA-256 `70A54247A52FB17478FF858BBFE739883962F897308ADB61CC483B24F93F5465` matches the built APK; signer SHA-256 matches installed certificate `5f4ff744e75541c6324ae5c1921b65b7f70a770d913f59e1d3cbc20cd36c769a`. Android 9 package verification completed before launch. BigDog launched to its Home screen; the BigDog Home accessibility service is enabled and bound, and Xiaomi voice accessibility remains enabled. Kev's feature/remote test and acceptance remain pending.
+
+**TV test after compatible installation:** open the home screen and check Input position/alignment with the complete Samsung 980 name visible. Open Quick Settings; expect compact icon-only Wallpaper, Appearance, Folders, USB and Search shortcuts, no Wi-Fi/Cast duplicates, visible focus, and All TV Settings first; verify the sidebar remains a labeled switch. Open the separate Wallpaper/Appearance views, confirm one Apply button per view, select an accent color and Apply, then return Home and verify the accent tint and saved selection after reopening. Confirm the live thumbnail shows the clip's changing colors with its pulse and loops smoothly. Check arrows, OK, Back and Home from every view. Kev's acceptance is pending.
 
 ## Cross-reference and ownership — no duplicate implementation stages
 

@@ -51,6 +51,7 @@ object LauncherPreferencesRepository {
     private val KEY_FOLDERS = stringPreferencesKey("home_folder_shortcuts_v1")
     private val KEY_HERO_SCALE = floatPreferencesKey("hero_card_scale")
     private val KEY_ICON_SCALE = floatPreferencesKey("home_app_icon_scale")
+    private val KEY_ACCENT_COLOR = intPreferencesKey("custom_accent_color")
     private val KEY_WALLPAPER_PRESET = stringPreferencesKey("wallpaper_preset_id")
     private val KEY_WALLPAPER_URI = stringPreferencesKey("wallpaper_custom_uri")
     private val KEY_WALLPAPER_DIM = floatPreferencesKey("wallpaper_dim_fraction")
@@ -104,7 +105,8 @@ object LauncherPreferencesRepository {
                     blurLevel = blur,
                     animationEnabled = prefs[KEY_WALLPAPER_ANIMATION] ?: true,
                     appIconScale = (prefs[KEY_ICON_SCALE] ?: 1f).coerceIn(0.7f, 1.2f),
-                    heroCardScale = (prefs[KEY_HERO_SCALE] ?: 1f).coerceIn(0.7f, 1.1f)
+                    heroCardScale = (prefs[KEY_HERO_SCALE] ?: 1f).coerceIn(0.7f, 1.1f),
+                    accentArgb = prefs[KEY_ACCENT_COLOR] ?: 0xFF8FD6B0.toInt()
                 ),
                 folderShortcuts = prefs[KEY_FOLDERS]?.let { raw ->
                     runCatching {
@@ -214,6 +216,7 @@ object LauncherPreferencesRepository {
             prefs[KEY_WALLPAPER_ANIMATION] = settings.animationEnabled
             prefs[KEY_ICON_SCALE] = settings.appIconScale.coerceIn(0.7f, 1.2f)
             prefs[KEY_HERO_SCALE] = settings.heroCardScale.coerceIn(0.7f, 1.1f)
+            prefs[KEY_ACCENT_COLOR] = settings.accentArgb
         }
     }
 

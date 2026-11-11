@@ -287,6 +287,7 @@ fun BigDogLauncherScreen(
     }
 
     var wallpaperWasOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var openAppearanceFirst by remember { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(uiState.selectedRail, uiState.homeReturnSequence) {
         if (wallpaperWasOpen && uiState.selectedRail == RailDestination.HOME && !returningHome) {
             androidx.compose.runtime.withFrameNanos { }
@@ -368,6 +369,7 @@ fun BigDogLauncherScreen(
                 selectedDestination = uiState.selectedRail,
                 onSelectDestination = { destination ->
                     if (destination == RailDestination.ALL_APPS) allAppsOpenedFromRail = true
+                    if (destination == RailDestination.WALLPAPER) openAppearanceFirst = false
                     viewModel.onSideRailClicked(context, destination)
                 }
             )
@@ -395,6 +397,7 @@ fun BigDogLauncherScreen(
                     onBackToHome = {
                         viewModel.onSideRailClicked(context, RailDestination.HOME)
                     },
+                    initialAppearance = openAppearanceFirst,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -421,6 +424,7 @@ fun BigDogLauncherScreen(
                     B2SourceShelf(
                         onInputSignal = viewModel::onInputSignal,
                         heroCardScale = uiState.wallpaperSettings.heroCardScale,
+                        accentColor = androidx.compose.ui.graphics.Color(uiState.wallpaperSettings.accentArgb),
                         source = uiState.heroSource,
                         heroApp = resolvedHeroApp,
                         vlcPlayback = uiState.lastVlcPlayback,
@@ -495,6 +499,12 @@ fun BigDogLauncherScreen(
                 else viewModel.launchSettingsWithFallback(context, action, label)
             },
             onOpenWallpaperStudio = {
+                openAppearanceFirst = false
+                viewModel.setQuickSettingsOpen(false)
+                viewModel.onSideRailClicked(context, RailDestination.WALLPAPER)
+            },
+            onOpenAppearance = {
+                openAppearanceFirst = true
                 viewModel.setQuickSettingsOpen(false)
                 viewModel.onSideRailClicked(context, RailDestination.WALLPAPER)
             }

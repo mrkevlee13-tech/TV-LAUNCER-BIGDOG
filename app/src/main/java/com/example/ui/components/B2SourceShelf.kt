@@ -64,7 +64,8 @@ fun B2SourceShelf(
     onChooseApp: () -> Unit,
     previewEnabled: Boolean,
     onInputSignal: (String, String) -> Unit = { _, _ -> },
-    heroCardScale: Float = 1f
+    heroCardScale: Float = 1f,
+    accentColor: Color = B2Accent
 ) {
     val lastVlcVideo = vlcPlayback?.takeIf { source?.kind == "app" && source.target == "org.videolan.vlc" }
     val input = inputs.firstOrNull { source?.kind == "input" && it.id == source.target }
@@ -81,7 +82,7 @@ fun B2SourceShelf(
                 shape = RoundedCornerShape(20.dp),
                 restingColor = Color(0xFF13252A),
                 focusScale = 1.025f,
-                restingBorder = BorderStroke(1.dp, B2Accent.copy(alpha = 0.4f)),
+                restingBorder = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f)),
                 focusRequester = heroFocusRequester,
                 onClick = onOpenHero,
                 modifier = Modifier.fillMaxSize().focusProperties {
@@ -133,10 +134,11 @@ fun B2SourceShelf(
             ) { Text("Choose app", color = B2MainText, fontSize = 11.sp,
                 modifier = Modifier.align(Alignment.Center).padding(horizontal = 12.dp)) }
         }
-        Column(Modifier.weight(1f).height(280.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f).height(280.dp).wrapContentWidth(Alignment.End), horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("INPUTS", color = B2QuietText, style = MaterialTheme.typography.labelMedium)
             visibleInputs.chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                     row.forEach { item ->
                         TvFocusableSurface(
                             itemId = "source_${item.id}", itemLabel = item.label,
@@ -144,20 +146,24 @@ fun B2SourceShelf(
                             shape = RoundedCornerShape(14.dp), focusScale = 1.025f,
                             restingColor = Color.Transparent,
                             focusedColor = Color(0xFF203C3D),
-                            restingBorder = if (item.id == input?.id) BorderStroke(1.5.dp, B2Accent.copy(alpha = 0.75f)) else null,
+                            restingBorder = if (item.id == input?.id) BorderStroke(1.5.dp, accentColor.copy(alpha = 0.75f)) else null,
                             onClick = {
                                 onSelectInput(item)
                                 scope.launch { withFrameNanos { }; heroFocusRequester.requestFocus() }
-                            }, modifier = Modifier.width(92.dp).height(104.dp)
+                            }, modifier = Modifier.width(if (item.inputType == HardwareInputType.USB) 124.dp else 92.dp).height(112.dp)
                         ) {
                             Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center) {
-                                Icon(sourceIcon(item.inputType), null, Modifier.size(38.dp),
-                                    tint = if (item.isConnected) B2Accent else B2QuietText)
-                                Spacer(Modifier.height(5.dp))
-                                Text(item.label, color = B2MainText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                if (item.inputType == HardwareInputType.USB && item.isConnected) {
-                                    Text(item.status, color = B2QuietText, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center) {
+                                    Icon(sourceIcon(item.inputType), null, Modifier.size(38.dp),
+                                    tint = if (item.isConnected) accentColor else B2QuietText)
+                                }
+                                Text(item.label, color = B2MainText, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.Center) {
+                                    if (item.inputType == HardwareInputType.USB && item.isConnected) {
+                                        Text(item.status, color = B2QuietText, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }

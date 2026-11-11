@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,6 +46,9 @@ import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -101,7 +105,8 @@ fun B2QuickSettingsOverlay(
     rows: List<QuickSettingRowItem>,
     onClose: () -> Unit,
     onSelectAction: (String, String) -> Unit,
-    onOpenWallpaperStudio: () -> Unit
+    onOpenWallpaperStudio: () -> Unit,
+    onOpenAppearance: () -> Unit = onOpenWallpaperStudio
 ) {
     val sidebarToggleFocusRequester = remember { FocusRequester() }
     val scrollState = rememberScrollState()
@@ -178,92 +183,38 @@ fun B2QuickSettingsOverlay(
                     }
                 }
 
-                Text(
-                    text = "CUSTOM APP FUNCTIONS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = B2QuietText
-                )
+                Text("SHORTCUTS", style = MaterialTheme.typography.labelMedium, color = B2QuietText)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CompactShortcut("qs_wallpaper", "Wallpaper", Icons.Outlined.Wallpaper, onOpenWallpaperStudio)
+                    CompactShortcut("qs_appearance", "Appearance", Icons.Outlined.Palette, onOpenAppearance)
+                    CompactShortcut("qs_folders", "Folders", Icons.Outlined.Folder) { onSelectAction("bigdog.folder_settings", "Folders") }
+                    CompactShortcut("qs_usb", "USB storage", Icons.Outlined.Usb) {
+                        tiles.firstOrNull { it.id == "qs_tile_usb" }?.let { onSelectAction(it.settingsAction, it.title) }
+                    }
+                    CompactShortcut("qs_search", "Search", Icons.Outlined.Search, onOpenSearch)
+                }
                 TvFocusableSurface(
-                    itemId = "qs_show_left_sidebar",
-                    focusRequester = sidebarToggleFocusRequester,
-                    shape = RoundedCornerShape(12.dp),
-                    restingColor = B2TileSurface,
-                    focusedColor = B2RaisedSurface,
-                    focusScale = 1.03f,
-                    onClick = { onShowLeftSidebarChange(!showLeftSidebar) },
-                    modifier = Modifier.fillMaxWidth().requiredHeight(62.dp).semantics {
-                        role = Role.Switch
-                        toggleableState = ToggleableState(showLeftSidebar)
+                    itemId = "qs_show_left_sidebar", focusRequester = sidebarToggleFocusRequester,
+                    shape = RoundedCornerShape(12.dp), restingColor = B2TileSurface, focusedColor = B2RaisedSurface,
+                    onClick = { onShowLeftSidebarChange(!showLeftSidebar) }, modifier = Modifier.fillMaxWidth().requiredHeight(62.dp).semantics {
+                        role = Role.Switch; toggleableState = ToggleableState(showLeftSidebar)
                     }
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
-                            Text("Show left sidebar", color = B2MainText,
-                                style = MaterialTheme.typography.bodyMedium)
-                            Text(if (showLeftSidebar) "On" else "Off - full width home",
-                                color = B2QuietText, style = MaterialTheme.typography.labelSmall)
+                            Text("Show left sidebar", color = B2MainText, style = MaterialTheme.typography.bodyMedium)
+                            Text(if (showLeftSidebar) "On" else "Off - full width home", color = B2QuietText,
+                                style = MaterialTheme.typography.labelSmall)
                         }
                         Switch(checked = showLeftSidebar, onCheckedChange = null)
                     }
                 }
-                QuickSettingRowCard(
-                    row = QuickSettingRowItem(
-                        id = "qs_row_search", title = "Search apps", settingsAction = ""
-                    ),
-                    onClick = onOpenSearch,
-                    modifier = Modifier.fillMaxWidth().requiredHeight(50.dp)
-                )
 
-                val row1 = tiles.take(2)
-                val row2 = tiles.drop(2).take(2)
-
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        row1.forEach { tile ->
-                            QuickSettingTileCard(
-                                tile = tile,
-                                focusRequester = null,
-                                onClick = { onSelectAction(tile.settingsAction, tile.title) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .requiredHeight(80.dp)
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        row2.forEach { tile ->
-                            QuickSettingTileCard(
-                                tile = tile,
-                                focusRequester = null,
-                                onClick = { onSelectAction(tile.settingsAction, tile.title) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .requiredHeight(80.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = "TV SETTINGS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = B2QuietText
-                )
+                Text("TV SETTINGS", style = MaterialTheme.typography.labelMedium, color = B2QuietText)
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    rows.forEach { row ->
+                    rows.sortedBy { if (it.id == "qs_row_all_settings") 0 else 1 }.forEach { row ->
                         QuickSettingRowCard(
                             row = row,
                             onClick = {
@@ -281,6 +232,15 @@ fun B2QuickSettingsOverlay(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.CompactShortcut(id: String, label: String, icon: ImageVector, onClick: () -> Unit) {
+    TvFocusableSurface(itemId = id, itemLabel = label, shape = RoundedCornerShape(12.dp),
+        restingColor = B2TileSurface, focusedColor = B2RaisedSurface, onClick = onClick,
+        modifier = Modifier.weight(1f).height(48.dp)) {
+        Icon(icon, label, Modifier.align(Alignment.Center).size(23.dp), tint = B2MainText)
     }
 }
 
@@ -403,8 +363,6 @@ private fun QuickSettingRowCard(
 
 private fun quickTileIconFor(id: String): ImageVector {
     return when (id) {
-        "qs_tile_wifi" -> Icons.Outlined.Wifi
-        "qs_tile_cast" -> Icons.Outlined.Cast
         else -> Icons.Outlined.Usb
     }
 }

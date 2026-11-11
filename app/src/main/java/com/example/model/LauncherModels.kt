@@ -155,7 +155,8 @@ data class WallpaperSettings(
     val blurLevel: Int = 0, // 0 = Off, 1 = Subtle, 2 = Medium, 3 = High
     val animationEnabled: Boolean = true,
     val appIconScale: Float = 1f,
-    val heroCardScale: Float = 1f
+    val heroCardScale: Float = 1f,
+    val accentArgb: Int = 0xFF8FD6B0.toInt()
 )
 
 /** A resumable destination, not fabricated programme metadata or progress. */

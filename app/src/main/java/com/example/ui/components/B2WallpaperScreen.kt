@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Check
@@ -37,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -128,7 +132,7 @@ private fun PresetWallpaperCanvas(
     animate: Boolean,
     modifier: Modifier = Modifier
 ) {
-    if (preset == WallpaperPreset.BIGDOG_LIVE || !preset.isAnimated || !animate) {
+    if (!preset.isAnimated || !animate) {
         WallpaperArtwork(preset, 0f, modifier)
         return
     }
@@ -139,12 +143,17 @@ private fun PresetWallpaperCanvas(
         targetValue = (2f * Math.PI).toFloat(),
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 18_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            repeatMode = RepeatMode.Reverse
         ),
         label = "drift_phase"
     )
 
-    WallpaperArtwork(preset, phase, modifier)
+    WallpaperArtwork(preset, phase, modifier.graphicsLayer {
+        val drift = kotlin.math.sin(phase.toDouble()).toFloat()
+        scaleX = 1.025f + drift * 0.012f
+        scaleY = 1.025f + drift * 0.012f
+        translationX = drift * 5.dp.toPx()
+    })
 }
 
 /**
@@ -158,7 +167,8 @@ fun B2WallpaperStudioScreen(
     onApplyWallpaper: (WallpaperSettings) -> Unit,
     onPickCustomImage: () -> Unit,
     onBackToHome: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialAppearance: Boolean = false
 ) {
     var draftPreset by remember(currentSettings) { mutableStateOf(currentSettings.preset) }
     var draftCustomUri by remember(currentSettings) { mutableStateOf(currentSettings.customImageUri) }
@@ -167,12 +177,15 @@ fun B2WallpaperStudioScreen(
     var draftHeroScale by remember(currentSettings) { mutableFloatStateOf(currentSettings.heroCardScale) }
     var draftIconScale by remember(currentSettings) { mutableFloatStateOf(currentSettings.appIconScale) }
     var draftMotion by remember(currentSettings) { mutableStateOf(currentSettings.animationEnabled) }
+    var draftAccent by remember(currentSettings) { mutableIntStateOf(currentSettings.accentArgb) }
+    var appearancePage by remember(initialAppearance) { mutableStateOf(initialAppearance) }
     val firstPresetFocusRequester = remember { FocusRequester() }
+    val firstAccentFocusRequester = remember { FocusRequester() }
     val motionFocusRequester = remember { FocusRequester() }
     val studioScope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         androidx.compose.runtime.withFrameNanos { }
-        firstPresetFocusRequester.requestFocus()
+        if (initialAppearance) firstAccentFocusRequester.requestFocus() else firstPresetFocusRequester.requestFocus()
     }
 
     val previewSettings = WallpaperSettings(
@@ -182,14 +195,16 @@ fun B2WallpaperStudioScreen(
         blurLevel = draftBlur,
         animationEnabled = draftMotion,
         appIconScale = draftIconScale,
-        heroCardScale = draftHeroScale
+        heroCardScale = draftHeroScale,
+        accentArgb = draftAccent
     )
 
     Box(modifier = modifier.fillMaxSize()) {
         // Live preview of the draft wallpaper
         B2WallpaperBackdrop(
             settings = previewSettings,
-            customBitmap = customBitmap
+            customBitmap = customBitmap,
+            animationAllowed = false
         )
 
         Column(
@@ -206,50 +221,57 @@ fun B2WallpaperStudioScreen(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "Wallpaper & Appearance",
+                        text = if (appearancePage) "Appearance" else "Wallpaper",
                         style = MaterialTheme.typography.headlineMedium,
                         color = B2MainText
                     )
                     Text(
-                        text = "Previewing ${if (draftCustomUri != null) "Custom Image" else draftPreset.title} · Adjust Dim and Blur below",
+                        text = if (appearancePage) "Choose icon and border color, then Apply" else "Previewing ${if (draftCustomUri != null) "Custom Image" else draftPreset.title} · Adjust Dim and Blur below",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                         color = B2QuietText
                     )
                 }
 
-                TvFocusableSurface(
-                    itemId = "wallpaper_back_btn",
-                    shape = RoundedCornerShape(12.dp),
-                    restingColor = B2TileSurface.copy(alpha = 0.85f),
-                    focusedColor = B2RaisedSurface,
-                    onClick = onBackToHome,
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .padding(horizontal = 18.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Back to Home",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = B2MainText
-                        )
-                    }
-                }
             }
 
             // Leave the artwork visible above the compact appearance controls.
             Spacer(Modifier.weight(1f))
 
-            // Appearance controls above the complete two-row wallpaper gallery.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TvFocusableSurface("wallpaper_tab", shape = RoundedCornerShape(10.dp), onClick = { appearancePage = false }, modifier = Modifier.height(40.dp)) {
+                    Text("Wallpaper", Modifier.align(Alignment.Center).padding(horizontal = 18.dp), color = B2MainText)
+                }
+                TvFocusableSurface("appearance_tab", shape = RoundedCornerShape(10.dp), onClick = { appearancePage = true }, modifier = Modifier.height(40.dp)) {
+                    Text("Appearance", Modifier.align(Alignment.Center).padding(horizontal = 18.dp), color = B2MainText)
+                }
+            }
+
+            // Wallpaper and appearance are distinct pages within the full-screen studio.
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                AppearanceSizeControl("App size", draftIconScale, 1.2f) { draftIconScale = it }
-                AppearanceSizeControl("Hero size", draftHeroScale, 1.1f) { draftHeroScale = it }
+                if (appearancePage) {
+                    AppearanceSizeControl("App size", draftIconScale, 1.2f) { draftIconScale = it }
+                    AppearanceSizeControl("Hero size", draftHeroScale, 1.1f) { draftHeroScale = it }
+                    Text("ICON AND BORDER COLOR", color = B2QuietText, style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        listOf(0xFF8FD6B0.toInt(), 0xFF69C8E8.toInt(), 0xFFA995F5.toInt(), 0xFFFFA66B.toInt(), 0xFFF07191.toInt(), 0xFFF0D36C.toInt()).forEachIndexed { index, value ->
+                            val color = Color(value)
+                            TvFocusableSurface("accent_color_$index", itemLabel = "Accent color ${index + 1}", shape = CircleShape,
+                                restingColor = color, focusedColor = color,
+                                restingBorder = if (draftAccent == value) BorderStroke(3.dp, B2MainText) else null,
+                                focusRequester = if (index == 0) firstAccentFocusRequester else null,
+                                onClick = { draftAccent = value }, modifier = Modifier.size(42.dp)) { }
+                        }
+                    }
+                    TvFocusableSurface("appearance_apply_button", shape = RoundedCornerShape(14.dp),
+                        restingColor = B2Accent, focusedColor = B2Accent,
+                        onClick = { onApplyWallpaper(previewSettings) }, modifier = Modifier.height(44.dp)) {
+                        Text("Apply", Modifier.align(Alignment.Center).padding(horizontal = 24.dp), color = B2AccentContent,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                    }
+                } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,7 +345,7 @@ fun B2WallpaperStudioScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Apply appearance",
+                                text = "Apply",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = B2AccentContent
                             )
@@ -370,6 +392,7 @@ fun B2WallpaperStudioScreen(
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -403,9 +426,21 @@ private fun WallpaperPresetCard(
         modifier = modifier
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // The thumbnail uses the same artwork as Home, frozen to avoid six
-            // extra animation loops while browsing the preset row.
-            WallpaperArtwork(preset, 0f, Modifier.fillMaxSize())
+            // Only the live preset owns a decoder; the studio backdrop stays still
+            // while this thumbnail plays the supplied clip with a subtle pulse.
+            if (preset == WallpaperPreset.BIGDOG_LIVE) {
+                val pulseTransition = rememberInfiniteTransition(label = "live_thumbnail_pulse")
+                val pulse by pulseTransition.animateFloat(
+                    initialValue = 0.98f, targetValue = 1.035f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1600, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ), label = "live_thumbnail_scale"
+                )
+                BigDogMotionWallpaper(Modifier.fillMaxSize().graphicsLayer { scaleX = pulse; scaleY = pulse })
+            }
+            else if (preset.isAnimated) PresetWallpaperCanvas(preset, animate = true, modifier = Modifier.fillMaxSize())
+            else WallpaperArtwork(preset, 0f, Modifier.fillMaxSize())
             // Live badge on animated presets
             if (preset.isAnimated) {
                 Box(

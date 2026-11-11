@@ -579,24 +579,7 @@ object TvSystemRepository {
 
     fun queryQuickSettingTiles(context: Context, wifiDisplayName: String): List<QuickSettingTileItem> {
         val (usbConnected, usbStatusText) = checkRealUsbConnection(context)
-        val (castConnected, castStatusText) = checkRealCastState(context)
-        val isNetworkConnected = wifiDisplayName != "Disconnected"
-
         return listOf(
-            QuickSettingTileItem(
-                id = "qs_tile_wifi",
-                title = "Wi-Fi",
-                subtitle = wifiDisplayName,
-                isActive = isNetworkConnected,
-                settingsAction = Settings.ACTION_WIFI_SETTINGS
-            ),
-            QuickSettingTileItem(
-                id = "qs_tile_cast",
-                title = "Cast",
-                subtitle = castStatusText,
-                isActive = castConnected,
-                settingsAction = Settings.ACTION_CAST_SETTINGS
-            ),
             QuickSettingTileItem(
                 id = "qs_tile_usb",
                 title = "USB",
