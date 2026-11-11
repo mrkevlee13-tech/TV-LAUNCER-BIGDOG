@@ -4,7 +4,7 @@ Updated: **11 November 2026 (Asia/Shanghai)**. Kev approved the summary of his n
 
 Use **S1–S11 below** from now on. Each request has one owning stage; the cross-reference table shows where the previous S1–S5 work moved. The [previous S1–S5 plan](archive/STAGE-PLAN-S1-S5-before-notes-2026-11-11.md) and [original plan/history](archive/STAGE-PLAN-before-renumbering-2026-11-11.md) are archived, not parallel task lists.
 
-S1 was confirmed by Kev on 11 November 2026. Kev explicitly authorised S2 and S3 together as one combined update and TV handoff, then confirmed both complete on 11 November 2026. S2 and S3 are ticked below. Later stages have not started.
+S1, S2, S3 and S7 have been confirmed by Kev as complete. S2/S3 were accepted together; S7 was accepted after the TV Bro remote test, all on 11 November 2026. The remaining unchecked stages have not started.
 
 ## Current stage list
 
@@ -14,7 +14,7 @@ S1 was confirmed by Kev on 11 November 2026. Kev explicitly authorised S2 and S3
 - [ ] **S4 — Home escape, complete first frame and background-app view** — previous S1 plus empty-load fix, double Home, recent/background apps and protected Clear all.
 - [ ] **S5 — VLC video resume and pause on Home** — previous S2; retain confirmed picture/sound, finish continuation and pause acceptance.
 - [ ] **S6 — Tomato VPN setup and connection persistence** — private account setup and protection through app switching, Home, background management and playback.
-- [ ] **S7 — TV browser access and installation** — assess Chrome Android APK/TV compatibility and provide the agreed browser.
+- [x] **S7 — TV browser access and installation** — assess Chrome Android APK/TV compatibility and provide the agreed browser.
 - [ ] **S8 — Reliable return from external TV settings** — previous S3, with its black-screen/Back-return investigation retained.
 - [ ] **S9 — Settings backdrop and presentation** — previous S4; external settings presentation is separate from S1's Home/wallpaper appearance.
 - [ ] **S10 — TV boot-to-BigDog and Redmi splash feasibility** — investigate firmware boot branding separately from BigDog's own S1 startup animation.
@@ -150,7 +150,9 @@ Provide ready-to-use browser access from Home. Assess Kev's Chrome Android APK s
 
 **Compatibility assessment (11 November 2026):** The Xiaomi TV reports Android 9/API 28 and `armeabi-v7a`. No browser app was installed, and HTTPS links had no resolving browser activity. Google's current Chrome requirements specify Android 10 or later, so this TV cannot run a currently supported Chrome release. Sideloading an older Chrome would leave the TV on an unsupported browser version. Kev chose TV Bro.
 
-**TV Bro installation:** Installed the developer's official stable GitHub release `tvbro-2.1.6-generic-geckoExcluded.apk` (version 2.1.6, code 69, package `com.phlox.tvwebbrowser`). APK signature verification passed (APK Signature Scheme v2; signer CN `Pheodor Tsapana`, SHA-256 certificate `1e5124be7e7fcb7a6462b47a42a8567863c6fccc6fe7708cd278be4f43047c75`). Manifest minSdk 24 and `armeabi-v7a` support match this Android 9/API 28 TV. The launcher category query finds its main activity. Launch succeeded and the browser's Home page is visible. APK SHA-256: `d8634edfe8d94b4fb9a52005d68a090a7f1e85b7f39c2cf01a25dc9dd60942b2`. Physical-remote address entry, page navigation, Back/Home behaviour, legibility and VPN use still await Kev's test; S7 is not complete.
+**TV Bro installation:** Installed the developer's official stable GitHub release `tvbro-2.1.6-generic-geckoExcluded.apk` (version 2.1.6, code 69, package `com.phlox.tvwebbrowser`). APK signature verification passed (APK Signature Scheme v2; signer CN `Pheodor Tsapana`, SHA-256 certificate `1e5124be7e7fcb7a6462b47a42a8567863c6fccc6fe7708cd278be4f43047c75`). Manifest minSdk 24 and `armeabi-v7a` support match this Android 9/API 28 TV. The launcher category query finds its main activity. Launch succeeded and the browser's Home page is visible. APK SHA-256: `d8634edfe8d94b4fb9a52005d68a090a7f1e85b7f39c2cf01a25dc9dd60942b2`.
+
+**Status:** accepted by Kev on 11 November 2026 (“TV Bro working”).
 
 Sources: [Google Chrome Android requirements](https://support.google.com/chrome/a/answer/7100626?hl=en-AF), [TV Bro project and official releases](https://github.com/truefedex/tv-bro), [TV Bro on Google Play](https://play.google.com/store/apps/details?id=com.phlox.tvwebbrowser).
 
