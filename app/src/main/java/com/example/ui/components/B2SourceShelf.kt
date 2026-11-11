@@ -6,6 +6,9 @@ import android.media.AudioManager
 import android.content.Context
 import android.util.Log
 import android.view.ViewGroup
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.model.*
+import com.example.data.videoSignalStatus
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,10 +63,14 @@ fun B2SourceShelf(
     onOpenHero: () -> Unit,
     onChooseApp: () -> Unit,
     previewEnabled: Boolean,
+    onInputSignal: (String, String) -> Unit = { _, _ -> },
     heroCardScale: Float = 1f
 ) {
     val lastVlcVideo = vlcPlayback?.takeIf { source?.kind == "app" && source.target == "org.videolan.vlc" }
     val input = inputs.firstOrNull { source?.kind == "input" && it.id == source.target }
+    val visibleInputs = inputs.filter { item ->
+        item.inputType != HardwareInputType.SCREEN_CAST && (item.inputType !in listOf(HardwareInputType.HDMI_1, HardwareInputType.HDMI_2, HardwareInputType.HDMI_3) || item.isConnected)
+    }
     val scope = rememberCoroutineScope()
     val chooseAppFocus = remember { FocusRequester() }
     Row(Modifier.fillMaxWidth().height(280.dp * maxOf(1f, heroCardScale)), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -83,7 +91,7 @@ fun B2SourceShelf(
             ) {
                 val hardware = input != null && input.inputType !in listOf(HardwareInputType.USB, HardwareInputType.SCREEN_CAST)
                 if (hardware) {
-                    InputVideoSurface(input, previewEnabled, false, {}, Modifier.fillMaxSize())
+                    InputVideoSurface(input, previewEnabled, false, {}, { signal -> onInputSignal(input.id, signal) }, Modifier.fillMaxSize())
                 } else {
                     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF183F45), Color(0xFF0C171F)))))
                     if (source?.kind == "app" && heroApp?.iconBitmap != null) {
@@ -92,10 +100,6 @@ fun B2SourceShelf(
                         Icon(if (source?.kind == "media") Icons.Outlined.Movie else if (input != null) sourceIcon(input.inputType) else Icons.Outlined.Tv,
                             null, Modifier.align(Alignment.Center).size(80.dp * heroCardScale), tint = B2Accent.copy(alpha = 0.7f))
                     }
-                }
-                Column(Modifier.align(Alignment.TopStart).padding(20.dp)) {
-                    Text(if (isDraft) "SELECTED SOURCE" else "LAST USED", color = B2Accent,
-                        style = MaterialTheme.typography.labelMedium)
                 }
                 Row(Modifier.align(Alignment.BottomStart).fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))))
@@ -110,13 +114,12 @@ fun B2SourceShelf(
                             input?.inputType == HardwareInputType.USB -> if (input.isConnected)
                                 "${input.status} · OK to choose a video" else "Connect a USB drive first"
                             input?.inputType == HardwareInputType.SCREEN_CAST -> "OK to open SmartShare"
-                            input != null -> "${input.label} · ${input.status} · OK for full screen"
+                            input != null -> if (input.isConnected) "OK for full screen" else "Connect this source to use it"
                             source != null -> if (isDraft) "App · OK to open" else "Last opened app · OK to open"
                             else -> "Select a source on the right"
                         }
                         Text(hint, color = B2QuietText, fontSize = 12.sp, maxLines = 2)
                     }
-                    Icon(Icons.Filled.PlayArrow, "Open selected source", Modifier.size(34.dp), tint = B2Accent)
                 }
             }
             TvFocusableSurface(
@@ -132,31 +135,33 @@ fun B2SourceShelf(
         }
         Column(Modifier.weight(1f).height(280.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("INPUTS", color = B2QuietText, style = MaterialTheme.typography.labelMedium)
-            inputs.chunked(3).forEach { row ->
-                Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            visibleInputs.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { item ->
                         TvFocusableSurface(
-                            itemId = "source_${item.id}", itemLabel = "${item.label}: ${item.status}",
-                            focusRequester = if (item.id == inputs.firstOrNull()?.id) inputsFocusRequester else null,
+                            itemId = "source_${item.id}", itemLabel = item.label,
+                            focusRequester = if (item.id == visibleInputs.firstOrNull()?.id) inputsFocusRequester else null,
                             shape = RoundedCornerShape(14.dp), focusScale = 1.025f,
-                            restingColor = if (item.id == input?.id) Color(0xFF203C3D) else B2TileSurface,
+                            restingColor = Color.Transparent,
+                            focusedColor = Color(0xFF203C3D),
+                            restingBorder = if (item.id == input?.id) BorderStroke(1.5.dp, B2Accent.copy(alpha = 0.75f)) else null,
                             onClick = {
                                 onSelectInput(item)
                                 scope.launch { withFrameNanos { }; heroFocusRequester.requestFocus() }
-                            }, modifier = Modifier.weight(1f).fillMaxHeight()
+                            }, modifier = Modifier.width(92.dp).height(104.dp)
                         ) {
                             Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center) {
-                                Icon(sourceIcon(item.inputType), null, Modifier.size(30.dp),
+                                Icon(sourceIcon(item.inputType), null, Modifier.size(38.dp),
                                     tint = if (item.isConnected) B2Accent else B2QuietText)
                                 Spacer(Modifier.height(5.dp))
                                 Text(item.label, color = B2MainText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text(item.status, color = if (item.isConnected) B2Accent else B2QuietText,
-                                    fontSize = 9.sp, maxLines = 2)
+                                if (item.inputType == HardwareInputType.USB && item.isConnected) {
+                                    Text(item.status, color = B2QuietText, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             }
                         }
                     }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
@@ -170,6 +175,7 @@ private fun InputVideoSurface(
     enabled: Boolean,
     fullScreen: Boolean,
     onVideoAvailable: () -> Unit,
+    onSignal: (String) -> Unit,
     modifier: Modifier
 ) {
     val resumed = rememberLauncherResumed()
@@ -180,6 +186,7 @@ private fun InputVideoSurface(
     var status by remember(inputId, active) { mutableStateOf(if (active) "Connecting preview…" else "${input.status} · Turn on the source") }
     var videoAvailable by remember(inputId, active) { mutableStateOf(false) }
     val latestVideoAvailable by rememberUpdatedState(onVideoAvailable)
+    val latestSignal by rememberUpdatedState(onSignal)
     Box(modifier.background(Color.Black)) {
         if (active) {
             val view = remember(inputId) {
@@ -199,6 +206,7 @@ private fun InputVideoSurface(
                     runCatching { view.reset() }
                     tuned = false
                     videoAvailable = false
+                    latestSignal("Video not checked")
                 }
                 val audioFocusListener = AudioManager.OnAudioFocusChangeListener { change ->
                     if (change <= AudioManager.AUDIOFOCUS_LOSS) {
@@ -211,21 +219,25 @@ private fun InputVideoSurface(
                     override fun onVideoAvailable(id: String) {
                         videoAvailable = true
                         status = "Live preview"
+                        latestSignal("Live video")
                         Log.i("BigDogInputs", "Video available: $id fullscreen=$fullScreen")
                         view.setStreamVolume(if (fullScreen && ownsAudioFocus) 1f else 0f)
                         if (fullScreen) latestVideoAvailable()
                     }
                     override fun onVideoUnavailable(id: String, reason: Int) {
                         videoAvailable = false
-                        status = "No video signal · Check the source / soundbar input"
+                        latestSignal(videoSignalStatus(reason))
+                        status = "${videoSignalStatus(reason)} · Check the source / soundbar input"
                         Log.i("BigDogInputs", "Video unavailable: $id reason=$reason")
                     }
                     override fun onConnectionFailed(id: String) {
+                        latestSignal("Video unavailable")
                         status = "Preview unavailable on this TV"
                         Log.w("BigDogInputs", "Input session connection failed: $id")
                     }
                     override fun onDisconnected(id: String) {
                         videoAvailable = false
+                        latestSignal("Video disconnected")
                         status = "Source disconnected"
                     }
                 })
@@ -239,6 +251,7 @@ private fun InputVideoSurface(
                             ownsAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
                             if (!ownsAudioFocus) { status = "HDMI audio is in use by another app"; return }
                         }
+                        latestSignal("Checking video")
                         view.setStreamVolume(0f)
                         view.tune(inputId, TvContract.buildChannelUriForPassthroughInput(inputId))
                         tuned = true
@@ -282,16 +295,12 @@ private fun InputVideoSurface(
 }
 
 @Composable
-fun B2InputFullScreen(input: TvInputPillItem, onBack: () -> Unit, onVideoAvailable: () -> Unit) {
-    val backFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { withFrameNanos { }; backFocus.requestFocus() }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        InputVideoSurface(input, true, true, onVideoAvailable, Modifier.fillMaxSize())
-        TvFocusableSurface(
-            itemId = "input_fullscreen_back", shape = RoundedCornerShape(12.dp),
-            restingColor = Color.Black.copy(alpha = 0.65f), focusRequester = backFocus, onClick = onBack,
-            modifier = Modifier.align(Alignment.TopStart).padding(24.dp).height(42.dp)
-        ) { Text("Back to Home · ${input.label}", color = B2MainText,
-            modifier = Modifier.align(Alignment.Center).padding(horizontal = 16.dp)) }
+fun B2InputFullScreen(input: TvInputPillItem, onBack: () -> Unit, onVideoAvailable: () -> Unit,
+    onInputSignal: (String, String) -> Unit = { _, _ -> }) {
+    val videoFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { withFrameNanos { }; videoFocus.requestFocus() }
+    BackHandler(onBack = onBack)
+    Box(Modifier.fillMaxSize().background(Color.Black).focusRequester(videoFocus).focusable()) {
+        InputVideoSurface(input, true, true, onVideoAvailable, { signal -> onInputSignal(input.id, signal) }, Modifier.fillMaxSize())
     }
 }

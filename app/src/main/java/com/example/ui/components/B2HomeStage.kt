@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Check
@@ -35,6 +37,16 @@ import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.*
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.focusProperties
+import kotlinx.coroutines.launch
+import com.example.model.FolderShortcut
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.FolderRepository
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -540,13 +552,41 @@ fun B2DynamicAppsRowSection(
     listState: androidx.compose.foundation.lazy.LazyListState,
     hasSavedHomeSelection: Boolean,
     appIconScale: Float = 1f,
+    folderShortcuts: List<FolderShortcut> = emptyList(),
+    onFolderClick: (FolderShortcut) -> Unit = {},
+    onFolderSettings: () -> Unit = {},
+    onSaveOrder: (List<String>) -> Unit = {},
+    homeReturnSequence: Long = 0,
     modifier: Modifier = Modifier
 ) {
     val pinnedOnly = installedApps.filter { it.isPinned }
-    val rowApps = if (hasSavedHomeSelection || pinnedOnly.isNotEmpty()) {
+    val savedRowApps = if (hasSavedHomeSelection || pinnedOnly.isNotEmpty()) {
         pinnedOnly
     } else {
         installedApps.take(6)
+    }
+
+    var movingPackage by remember(homeReturnSequence) { mutableStateOf<String?>(null) }
+    var draftOrder by remember { mutableStateOf(emptyList<String>()) }
+    val rowApps = if (movingPackage == null) savedRowApps else draftOrder.mapNotNull { pkg -> savedRowApps.firstOrNull { it.packageName == pkg } }
+    val appFocus = remember { mutableMapOf<String, FocusRequester>() }
+    val moveScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    BackHandler(enabled = movingPackage != null) {
+        val target = movingPackage
+        movingPackage = null
+        moveScope.launch { withFrameNanos { }; target?.let { appFocus[it]?.requestFocus() } }
+    }
+    LaunchedEffect(movingPackage, draftOrder) {
+        movingPackage?.let { pkg ->
+            // Holding OK never changes the viewport. Scroll only after a move
+            // carries the selected app outside the currently composed items.
+            if (listState.layoutInfo.visibleItemsInfo.none { it.key == pkg }) {
+                listState.animateScrollToItem(draftOrder.indexOf(pkg).coerceAtLeast(0))
+                withFrameNanos { }
+                appFocus[pkg]?.requestFocus()
+            }
+        }
     }
 
     Column(
@@ -571,12 +611,62 @@ fun B2DynamicAppsRowSection(
             ) { app ->
                 DynamicInstalledAppTile(
                     app = app,
-                    onClick = { onAppClick(app) },
+                    onClick = {
+                        if (movingPackage != null) { onSaveOrder(draftOrder); movingPackage = null }
+                        else onAppClick(app)
+                    },
+                    onLongClick = {
+                        if (movingPackage == null) {
+                            draftOrder = savedRowApps.map { it.packageName }
+                            movingPackage = app.packageName
+                        }
+                    },
+                    focusRequester = appFocus.getOrPut(app.packageName) { FocusRequester() },
+                    isMoving = movingPackage == app.packageName,
                     iconScale = appIconScale,
                     modifier = Modifier
                         .width(144.dp * appIconScale)
                         .height(92.dp * appIconScale)
+                        .onPreviewKeyEvent { event ->
+                            if (movingPackage != app.packageName) false else {
+                                val key = event.nativeKeyEvent
+                                val direction = when (key.keyCode) {
+                                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -1
+                                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> 1
+                                    else -> 0
+                                }
+                                if (direction != 0 && key.action == android.view.KeyEvent.ACTION_DOWN) {
+                                    val index = draftOrder.indexOf(app.packageName)
+                                    val next = (index + direction).coerceIn(0, draftOrder.lastIndex)
+                                    draftOrder = draftOrder.toMutableList().apply { add(next, removeAt(index)) }
+                                }
+                                direction != 0 || key.keyCode in listOf(android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+                            }
+                        }
                 )
+            }
+
+            items(folderShortcuts.filter { it.visible }, key = { "shortcut_${it.id}" }) { shortcut ->
+                val available = FolderRepository.resolve(context, shortcut)?.isDirectory == true
+                TvFocusableSurface(itemId = "shortcut_${shortcut.id}", itemLabel = shortcut.name,
+                    shape = RoundedCornerShape(16.dp), onClick = { onFolderClick(shortcut) },
+                    modifier = Modifier.width(144.dp * appIconScale).height(92.dp * appIconScale)) {
+                    Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(Icons.Outlined.Folder, null, tint = if (available) B2Accent else B2QuietText, modifier = Modifier.size(32.dp * appIconScale))
+                        Text(shortcut.name, color = B2MainText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (!available) Text("Drive unavailable", color = B2QuietText, fontSize = 9.sp)
+                    }
+                }
+            }
+            item(key = "folder_settings") {
+                TvFocusableSurface(itemId = "home_folder_settings", shape = RoundedCornerShape(16.dp),
+                    onClick = onFolderSettings, restingColor = Color.Transparent,
+                    modifier = Modifier.width(100.dp * appIconScale).height(92.dp * appIconScale)) {
+                    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(Icons.Outlined.Settings, null, tint = B2QuietText)
+                        Text("Folders", color = B2QuietText, fontSize = 12.sp)
+                    }
+                }
             }
 
             // Trailing dashed "All apps" tile matching B2 spec (144x92dp)
@@ -636,7 +726,9 @@ fun DynamicInstalledAppTile(
     modifier: Modifier = Modifier,
     showPinBadge: Boolean = false,
     iconScale: Float = 1f,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    onLongClick: (() -> Unit)? = null,
+    isMoving: Boolean = false
 ) {
     val shape = RoundedCornerShape(16.dp)
     TvFocusableSurface(
@@ -646,6 +738,7 @@ fun DynamicInstalledAppTile(
         restingColor = B2TileSurface,
         focusedColor = B2RaisedSurface,
         onClick = onClick,
+        onLongClick = onLongClick,
         modifier = modifier
     ) {
         if (app.bannerBitmap != null) {
@@ -696,6 +789,16 @@ fun DynamicInstalledAppTile(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+
+        if (isMoving) {
+            Row(Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 3.dp),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf(Icons.Outlined.ChevronLeft, Icons.Outlined.ChevronRight).forEachIndexed { index, arrow ->
+                    Icon(arrow, if (index == 0) "Move left" else "Move right", tint = B2Accent,
+                        modifier = Modifier.size(24.dp).background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(8.dp)))
+                }
             }
         }
 

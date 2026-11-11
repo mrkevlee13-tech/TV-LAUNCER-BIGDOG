@@ -1,6 +1,5 @@
 package com.example.data
 
-import android.bluetooth.BluetoothManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -42,7 +41,7 @@ import com.example.model.WatchTab
  *    getInstalledApplications fallback) with their actual installed banner and icon drawables.
  * 2. Reads Android TV Channels (preview_program & watch_next_program) and merges them with
  *    Last Played history and user-customized Watch Shelf items (Continue, Next episode, To Watch / Favorites).
- * 3. Reads real hardware states for HDMI 1–3, AV, USB storage, Screen cast, Wi-Fi, and Bluetooth.
+ * 3. Reads real hardware states for HDMI 1–3, AV, USB storage, Screen cast, and Wi-Fi.
  */
 object TvSystemRepository {
 
@@ -581,7 +580,6 @@ object TvSystemRepository {
     fun queryQuickSettingTiles(context: Context, wifiDisplayName: String): List<QuickSettingTileItem> {
         val (usbConnected, usbStatusText) = checkRealUsbConnection(context)
         val (castConnected, castStatusText) = checkRealCastState(context)
-        val (btEnabled, btStatusText) = checkRealBluetoothState(context)
         val isNetworkConnected = wifiDisplayName != "Disconnected"
 
         return listOf(
@@ -591,13 +589,6 @@ object TvSystemRepository {
                 subtitle = wifiDisplayName,
                 isActive = isNetworkConnected,
                 settingsAction = Settings.ACTION_WIFI_SETTINGS
-            ),
-            QuickSettingTileItem(
-                id = "qs_tile_bt",
-                title = "Bluetooth",
-                subtitle = btStatusText,
-                isActive = btEnabled,
-                settingsAction = Settings.ACTION_BLUETOOTH_SETTINGS
             ),
             QuickSettingTileItem(
                 id = "qs_tile_cast",
@@ -657,18 +648,6 @@ object TvSystemRepository {
                 false to "Not connected"
             }
         }.getOrDefault(false to "Not connected")
-    }
-
-    fun checkRealBluetoothState(context: Context): Pair<Boolean, String> {
-        return runCatching {
-            val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            val isOn = bm?.adapter?.isEnabled == true
-            if (isOn) {
-                true to "On"
-            } else {
-                false to "Off"
-            }
-        }.getOrDefault(false to "Off")
     }
 
     @Suppress("DEPRECATION")

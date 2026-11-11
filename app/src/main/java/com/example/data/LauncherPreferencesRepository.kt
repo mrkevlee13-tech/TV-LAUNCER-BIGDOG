@@ -17,6 +17,8 @@ import com.example.model.WatchTab
 import com.example.model.HeroSource
 import com.example.model.VlcPlayback
 import org.json.JSONObject
+import org.json.JSONArray
+import com.example.model.FolderShortcut
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -34,7 +36,8 @@ data class PersistedLauncherPrefs(
     val customWatchItems: List<WatchItem>,
     val wallpaperSettings: WallpaperSettings,
     val lastHeroSource: HeroSource? = null,
-    val lastVlcPlayback: VlcPlayback? = null
+    val lastVlcPlayback: VlcPlayback? = null,
+    val folderShortcuts: List<FolderShortcut> = listOf(FolderShortcut("usb_videos", "USB videos", automaticUsb = true), FolderShortcut("moviebox_downloads", "MovieBoxPro Downloads", "MOVIE BOX DOWNLOADS", automaticUsb = true))
 )
 
 object LauncherPreferencesRepository {
@@ -45,6 +48,7 @@ object LauncherPreferencesRepository {
     private val KEY_HERO_PACKAGE = stringPreferencesKey("hero_package_name")
     private val KEY_HERO_LABEL = stringPreferencesKey("hero_custom_label")
     private val KEY_CUSTOM_WATCH_ITEMS = stringPreferencesKey("custom_watch_items_v2")
+    private val KEY_FOLDERS = stringPreferencesKey("home_folder_shortcuts_v1")
     private val KEY_HERO_SCALE = floatPreferencesKey("hero_card_scale")
     private val KEY_ICON_SCALE = floatPreferencesKey("home_app_icon_scale")
     private val KEY_WALLPAPER_PRESET = stringPreferencesKey("wallpaper_preset_id")
@@ -102,6 +106,16 @@ object LauncherPreferencesRepository {
                     appIconScale = (prefs[KEY_ICON_SCALE] ?: 1f).coerceIn(0.7f, 1.2f),
                     heroCardScale = (prefs[KEY_HERO_SCALE] ?: 1f).coerceIn(0.7f, 1.1f)
                 ),
+                folderShortcuts = prefs[KEY_FOLDERS]?.let { raw ->
+                    runCatching {
+                        val array = JSONArray(raw)
+                        (0 until array.length()).map { index ->
+                            val item = array.getJSONObject(index)
+                            FolderShortcut(item.getString("id"), item.getString("name"), item.optString("path"),
+                                item.optBoolean("usb"), item.optBoolean("visible", true))
+                        }
+                    }.getOrDefault(emptyList())
+                } ?: listOf(FolderShortcut("usb_videos", "USB videos", automaticUsb = true), FolderShortcut("moviebox_downloads", "MovieBoxPro Downloads", "MOVIE BOX DOWNLOADS", automaticUsb = true)),
                 lastVlcPlayback = prefs[KEY_VLC_PLAYBACK]?.let { raw ->
                     runCatching {
                         val json = JSONObject(raw)
@@ -120,6 +134,17 @@ object LauncherPreferencesRepository {
                     }.getOrNull()
                 }
             )
+        }
+    }
+
+    suspend fun saveFolderShortcuts(context: Context, items: List<FolderShortcut>) {
+        context.applicationContext.launcherDataStore.edit { prefs ->
+            prefs[KEY_FOLDERS] = JSONArray().apply {
+                items.forEach { item -> put(JSONObject().apply {
+                    put("id", item.id); put("name", item.name); put("path", item.path)
+                    put("usb", item.automaticUsb); put("visible", item.visible)
+                }) }
+            }.toString()
         }
     }
 

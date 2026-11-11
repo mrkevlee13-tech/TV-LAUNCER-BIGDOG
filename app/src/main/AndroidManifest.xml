@@ -19,6 +19,8 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
     <!-- Full package visibility so all sideloaded APKs (Movie Box Pro, etc.) & built-in TV apps appear in All Apps -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
@@ -73,6 +75,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/folder_paths" />
+        </provider>
 
         <!-- Xiaomi TV Home Button & Stock Launcher Interceptor Service -->
         <service

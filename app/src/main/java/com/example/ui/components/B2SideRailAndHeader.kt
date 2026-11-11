@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Wallpaper
@@ -206,7 +205,7 @@ private fun railIconFor(destination: RailDestination, isSelected: Boolean): Imag
  * B2 Header Bar:
  * - Left: Clock at 36sp (Space Grotesk) and date at 15sp in quiet text (#9AA3AD).
  * - Right: Wi-Fi pill 44dp tall showing network name, then round 44dp buttons for
- *   Bluetooth, Cast, and Quick settings.
+ *   Cast and Quick settings.
  */
 @Composable
 fun B2HeaderBar(
@@ -288,16 +287,6 @@ fun B2HeaderBar(
                     )
                 }
             }
-
-            // Round 44dp Bluetooth Button
-            HeaderCircleButton(
-                id = "header_bluetooth_button",
-                label = "Bluetooth",
-                icon = Icons.Outlined.Bluetooth,
-                onClick = {
-                    onOpenSettingAction(Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth")
-                }
-            )
 
             // Round 44dp Cast Button
             HeaderCircleButton(

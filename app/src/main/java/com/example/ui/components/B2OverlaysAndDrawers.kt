@@ -34,7 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
@@ -405,7 +404,6 @@ private fun QuickSettingRowCard(
 private fun quickTileIconFor(id: String): ImageVector {
     return when (id) {
         "qs_tile_wifi" -> Icons.Outlined.Wifi
-        "qs_tile_bt" -> Icons.Outlined.Bluetooth
         "qs_tile_cast" -> Icons.Outlined.Cast
         else -> Icons.Outlined.Usb
     }

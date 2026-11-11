@@ -8,6 +8,7 @@ internal fun LauncherUiState.returnedHome(): LauncherUiState = copy(
     isInputFullScreen = false,
     isInputPreviewEnabled = false,
     isQuickSettingsOpen = false,
+    isFolderSettingsOpen = false,
     isHeroSelectorOpen = false,
     isAddToWatchDialogOpen = false,
     isAllAppsOverlayOpen = false,

@@ -77,7 +77,8 @@ data class TvInputPillItem(
     val status: String,
     val isConnected: Boolean,
     val inputType: HardwareInputType,
-    val tvInputId: String? = null
+    val tvInputId: String? = null,
+    val videoSignal: String = "Video not checked"
 )
 
 data class QuickSettingTileItem(
@@ -246,3 +247,12 @@ object B2SampleCatalog {
         )
     )
 }
+
+/** Shared-storage destination; USB roots are resolved again after a drive reconnects. */
+data class FolderShortcut(
+    val id: String,
+    val name: String,
+    val path: String = "",
+    val automaticUsb: Boolean = false,
+    val visible: Boolean = true
+)

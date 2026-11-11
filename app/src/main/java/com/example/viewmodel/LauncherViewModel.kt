@@ -15,6 +15,7 @@ import com.example.data.TvSystemRepository
 import com.example.data.resolveHeroSource
 import com.example.data.VlcPlaybackRepository
 import com.example.data.mergeVlcPlayback
+import com.example.model.FolderShortcut
 import com.example.model.VlcPlayback
 import com.example.model.B2SampleCatalog
 import com.example.model.HeroSource
@@ -60,6 +61,8 @@ data class LauncherUiState(
     val wallpaperSettings: WallpaperSettings = WallpaperSettings(),
     val customWallpaperBitmap: ImageBitmap? = null,
     val isQuickSettingsOpen: Boolean = false,
+    val isFolderSettingsOpen: Boolean = false,
+    val folderShortcuts: List<FolderShortcut> = emptyList(),
     val isHeroSelectorOpen: Boolean = false,
     val isAddToWatchDialogOpen: Boolean = false,
     val isAllAppsOverlayOpen: Boolean = false,
@@ -99,6 +102,11 @@ data class LauncherUiState(
             title = "Wallpaper and appearance",
             settingsAction = "",
             opensWallpaperScreen = true
+        ),
+        QuickSettingRowItem(
+            id = "qs_row_folders",
+            title = "Home folder shortcuts",
+            settingsAction = "bigdog.folder_settings"
         ),
         QuickSettingRowItem(
             id = "qs_row_all_settings",
@@ -233,7 +241,11 @@ class LauncherViewModel : ViewModel() {
                     }),
                 hasHeroHistory = lastOpenedSource != null || prefs.lastHeroSource != null,
                 lastVlcPlayback = state.lastVlcPlayback ?: prefs.lastVlcPlayback,
-                inputsRow = result.inputs,
+                folderShortcuts = prefs.folderShortcuts,
+                inputsRow = result.inputs.map { input ->
+                    val previous = state.inputsRow.firstOrNull { it.id == input.id && it.isConnected == input.isConnected }
+                    input.copy(videoSignal = previous?.videoSignal ?: "Video not checked")
+                },
                 wifiDisplayName = result.wifiName,
                 quickSettingTiles = result.qsTiles,
                 watchItems = result.watchList,
@@ -463,6 +475,41 @@ class LauncherViewModel : ViewModel() {
         }
     }
 
+    fun saveHomeOrder(context: Context, packages: List<String>) {
+        _uiState.update { state -> state.copy(hasSavedHomeSelection = true,
+            installedApps = state.installedApps.map { it.copy(isPinned = it.packageName in packages) }
+                .sortedBy { packages.indexOf(it.packageName).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }) }
+        viewModelScope.launch {
+            runCatching { LauncherPreferencesRepository.savePinnedPackages(context, packages) }
+                .onFailure { showToast(context, "Unable to save app order") }
+        }
+    }
+
+    fun setFolderSettingsOpen(open: Boolean) {
+        _uiState.update { it.copy(isFolderSettingsOpen = open, isQuickSettingsOpen = false) }
+    }
+
+    fun saveFolderShortcuts(context: Context, shortcuts: List<FolderShortcut>) {
+        viewModelScope.launch {
+            runCatching { LauncherPreferencesRepository.saveFolderShortcuts(context, shortcuts) }
+                .onFailure { showToast(context, "Unable to save folder shortcuts") }
+        }
+    }
+
+    fun onInputSignal(inputId: String, signal: String) {
+        _uiState.update { state -> state.copy(inputsRow = state.inputsRow.map {
+            if (it.id == inputId) it.copy(videoSignal = signal) else it
+        }) }
+    }
+
+    fun onFolderVideo(context: Context, file: java.io.File) {
+        if (!com.example.data.FolderRepository.permitted(context, file) || !file.isFile) {
+            showToast(context, "Video unavailable. Reconnect the drive."); return
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        launchHeroMedia(context, HeroSource("media", uri.toString(), file.nameWithoutExtension, "video/*"))
+    }
+
     fun confirmHomeApps(context: Context, packages: List<String>) {
         if (_uiState.value.isSavingHomeApps) return
         _uiState.update { it.copy(isSavingHomeApps = true) }
@@ -584,6 +631,10 @@ class LauncherViewModel : ViewModel() {
                     setDataAndType(Uri.parse(source.target), source.mimeType ?: "video/*")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
+                if (Uri.parse(source.target).authority == "${context.packageName}.files") {
+                    intent.setClassName(VlcPlaybackRepository.PACKAGE, "${VlcPlaybackRepository.PACKAGE}.StartActivity")
+                    intent.putExtra("item_location", Uri.parse(source.target))
+                }
                 launchedMediaPlayer = intent.resolveActivity(context.packageManager)?.packageName
                 runCatching { context.startActivity(intent) }
                     .onSuccess { rememberHeroSource(context, source) }
@@ -684,11 +735,21 @@ class LauncherViewModel : ViewModel() {
     }
 
     fun launchSettingsWithFallback(context: Context, action: String, label: String) {
+        if (action == "bigdog.folder_settings") { setFolderSettingsOpen(true); return }
         if (action == Settings.ACTION_CAST_SETTINGS) {
             showToast(context, TvSystemRepository.activateScreenCast(context))
             return
         }
 
+        if (action == Settings.ACTION_DISPLAY_SETTINGS) {
+            val nativePicture = Intent("com.xiaomi.mitv.settings.display_settings").apply {
+                component = android.content.ComponentName(
+                    "com.xiaomi.mitv.settings",
+                    "com.xiaomi.mitv.settings.SettingsBroadcastReceiver"
+                )
+            }
+            if (runCatching { context.sendBroadcast(nativePicture); true }.getOrDefault(false)) return
+        }
         val primaryIntent = Intent(action).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }

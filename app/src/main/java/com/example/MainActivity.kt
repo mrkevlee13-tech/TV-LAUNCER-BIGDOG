@@ -45,6 +45,10 @@ import com.example.ui.components.AddToWatchModal
 import com.example.ui.components.B2AllAppsOverlayModal
 import com.example.ui.components.B2DynamicAppsRowSection
 import com.example.ui.components.B2HeaderBar
+import com.example.ui.components.B2FolderBrowser
+import com.example.ui.components.B2FolderSettings
+import com.example.data.FolderRepository
+import androidx.compose.runtime.mutableStateOf
 import com.example.ui.components.B2SourceShelf
 import com.example.ui.components.B2InputFullScreen
 import com.example.model.HardwareInputType
@@ -229,12 +233,24 @@ fun BigDogLauncherScreen(
                 val homeCount = if (uiState.hasSavedHomeSelection) {
                     uiState.installedApps.count { it.isPinned }
                 } else uiState.installedApps.take(6).size
-                homeAppsListState.scrollToItem(homeCount)
+                homeAppsListState.scrollToItem(homeCount + uiState.folderShortcuts.count { it.visible } + 1)
                 androidx.compose.runtime.withFrameNanos { }
                 homeAllAppsFocusRequester.requestFocus()
             }
         }
         allAppsWasOpen = uiState.isAllAppsOverlayOpen
+    }
+    var folderBrowserPath by remember(uiState.homeReturnSequence) { mutableStateOf<String?>(null) }
+    var storageAction by remember(uiState.homeReturnSequence) { mutableStateOf<(() -> Unit)?>(null) }
+    val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val action = storageAction
+        storageAction = null
+        if (granted) action?.invoke()
+        else android.widget.Toast.makeText(context, "Allow storage access to browse your USB folders", android.widget.Toast.LENGTH_LONG).show()
+    }
+    fun withStorage(action: () -> Unit) {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED) action()
+        else { storageAction = action; storagePermission.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE) }
     }
     val scrollState = rememberScrollState()
 
@@ -308,7 +324,7 @@ fun BigDogLauncherScreen(
     }
 
     BackHandler(
-        enabled = uiState.isInputFullScreen || uiState.isQuickSettingsOpen ||
+        enabled = uiState.isFolderSettingsOpen || folderBrowserPath != null || uiState.isInputFullScreen || uiState.isQuickSettingsOpen ||
             uiState.isHeroSelectorOpen ||
             uiState.isAddToWatchDialogOpen ||
             uiState.isAllAppsOverlayOpen ||
@@ -316,6 +332,8 @@ fun BigDogLauncherScreen(
             uiState.selectedRail != RailDestination.HOME
     ) {
         when {
+            folderBrowserPath != null -> folderBrowserPath = null
+            uiState.isFolderSettingsOpen -> viewModel.setFolderSettingsOpen(false)
             uiState.isHeroSelectorOpen -> viewModel.setHeroSelectorOpen(false)
             uiState.isAddToWatchDialogOpen -> viewModel.setAddToWatchDialogOpen(false)
             uiState.isAllAppsOverlayOpen -> if (!uiState.isSavingHomeApps) viewModel.setAllAppsOverlayOpen(false)
@@ -342,7 +360,7 @@ fun BigDogLauncherScreen(
         )
 
         if (!uiState.isInputFullScreen) Row(modifier = Modifier.fillMaxSize().focusProperties {
-            canFocus = !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen
+            canFocus = !uiState.isFolderSettingsOpen && folderBrowserPath == null && !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen
         }) {
             // Left 88dp Side Rail (#0B0D0F)
             if (uiState.showLeftSidebar && uiState.selectedRail != RailDestination.WALLPAPER) B2SideRail(
@@ -401,6 +419,7 @@ fun BigDogLauncherScreen(
                     )
 
                     B2SourceShelf(
+                        onInputSignal = viewModel::onInputSignal,
                         heroCardScale = uiState.wallpaperSettings.heroCardScale,
                         source = uiState.heroSource,
                         heroApp = resolvedHeroApp,
@@ -419,11 +438,20 @@ fun BigDogLauncherScreen(
                             } else viewModel.onHeroTileClicked(context)
                         },
                         onChooseApp = { viewModel.setHeroSelectorOpen(true) },
-                        previewEnabled = uiState.isInputPreviewEnabled && !uiState.isQuickSettingsOpen && !uiState.isAllAppsOverlayOpen &&
+                        previewEnabled = uiState.isInputPreviewEnabled && !uiState.isQuickSettingsOpen &&
                             !uiState.isSearchOverlayOpen && !uiState.isHeroSelectorOpen
                     )
 
                     B2DynamicAppsRowSection(
+                        homeReturnSequence = uiState.homeReturnSequence,
+                        folderShortcuts = uiState.folderShortcuts,
+                        onSaveOrder = { viewModel.saveHomeOrder(context, it) },
+                        onFolderSettings = { withStorage { viewModel.setFolderSettingsOpen(true) } },
+                        onFolderClick = { shortcut -> withStorage {
+                            val directory = FolderRepository.resolve(context, shortcut)
+                            if (directory?.isDirectory == true && FolderRepository.permitted(context, directory)) folderBrowserPath = directory.absolutePath
+                            else android.widget.Toast.makeText(context, "Folder unavailable. Reconnect the drive or edit this shortcut in Folders.", android.widget.Toast.LENGTH_LONG).show()
+                        } },
                         appIconScale = uiState.wallpaperSettings.appIconScale,
                         installedApps = uiState.installedApps,
                         isLoading = uiState.isLoadingApps,
@@ -446,6 +474,7 @@ fun BigDogLauncherScreen(
             if (input != null) B2InputFullScreen(
                 input = input,
                 onBack = { viewModel.closeInputFullScreen() },
+                onInputSignal = viewModel::onInputSignal,
                 onVideoAvailable = { viewModel.onFullScreenVideoAvailable(context) }
             )
         }
@@ -462,12 +491,25 @@ fun BigDogLauncherScreen(
             rows = uiState.quickSettingRows,
             onClose = { viewModel.setQuickSettingsOpen(false) },
             onSelectAction = { action, label ->
-                viewModel.launchSettingsWithFallback(context, action, label)
+                if (action == "bigdog.folder_settings") withStorage { viewModel.setFolderSettingsOpen(true) }
+                else viewModel.launchSettingsWithFallback(context, action, label)
             },
             onOpenWallpaperStudio = {
                 viewModel.setQuickSettingsOpen(false)
                 viewModel.onSideRailClicked(context, RailDestination.WALLPAPER)
             }
+        )
+
+        if (uiState.isFolderSettingsOpen) B2FolderSettings(
+            initial = uiState.folderShortcuts,
+            onSave = { viewModel.saveFolderShortcuts(context, it) },
+            onClose = { viewModel.setFolderSettingsOpen(false) }
+        )
+        if (folderBrowserPath != null) B2FolderBrowser(
+            initialPath = folderBrowserPath,
+            selectFolder = false,
+            onPlayVideo = { file -> folderBrowserPath = null; viewModel.onFolderVideo(context, file) },
+            onClose = { folderBrowserPath = null }
         )
 
         // All Apps Full Drawer: Shows all sideloaded APKs & built-in TV apps + Select Home Apps & Set Hero App

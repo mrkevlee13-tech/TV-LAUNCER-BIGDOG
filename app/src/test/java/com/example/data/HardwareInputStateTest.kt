@@ -7,11 +7,19 @@ import org.junit.Test
 class HardwareInputStateTest {
     @Test fun observedTvSnapshotDoesNotShowEveryPortConnected() {
         val states = listOf(1, 0, 1, 1) // HDMI 1, HDMI 2, HDMI 3, AV from TV diagnostics
-        assertEquals(listOf("No signal / standby", "Connected", "No signal / standby", "No signal / standby"),
+        assertEquals(listOf("Standby / connection unverified", "Device connected", "Standby / connection unverified", "Standby / connection unverified"),
             states.map(::hardwareInputStatus))
         assertEquals("State unavailable", hardwareInputStatus(null))
         assertEquals("State unavailable", hardwareInputStatus(99))
         assertEquals("Disconnected", hardwareInputStatus(2))
+    }
+
+    @Test fun bufferingAndAudioOnlyAreNotReportedAsDisconnectedConsole() {
+        assertEquals("Checking video", videoSignalStatus(1))
+        assertEquals("Buffering video", videoSignalStatus(3))
+        assertEquals("Audio only", videoSignalStatus(4))
+        assertEquals("No video signal", videoSignalStatus(5))
+        assertEquals("Video unavailable", videoSignalStatus(0))
     }
 
     @Test fun missingOrReorderedPortsKeepTheirActualNumbers() {
