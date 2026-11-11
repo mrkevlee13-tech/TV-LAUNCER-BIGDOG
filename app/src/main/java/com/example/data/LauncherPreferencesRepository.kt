@@ -45,6 +45,8 @@ object LauncherPreferencesRepository {
     private val KEY_HERO_PACKAGE = stringPreferencesKey("hero_package_name")
     private val KEY_HERO_LABEL = stringPreferencesKey("hero_custom_label")
     private val KEY_CUSTOM_WATCH_ITEMS = stringPreferencesKey("custom_watch_items_v2")
+    private val KEY_HERO_SCALE = floatPreferencesKey("hero_card_scale")
+    private val KEY_ICON_SCALE = floatPreferencesKey("home_app_icon_scale")
     private val KEY_WALLPAPER_PRESET = stringPreferencesKey("wallpaper_preset_id")
     private val KEY_WALLPAPER_URI = stringPreferencesKey("wallpaper_custom_uri")
     private val KEY_WALLPAPER_DIM = floatPreferencesKey("wallpaper_dim_fraction")
@@ -75,9 +77,10 @@ object LauncherPreferencesRepository {
                 deserializeWatchItems(rawWatch)
             }
 
-            val presetId = prefs[KEY_WALLPAPER_PRESET] ?: WallpaperPreset.CHARCOAL.id
-            val preset = WallpaperPreset.entries.firstOrNull { it.id == presetId }
-                ?: WallpaperPreset.CHARCOAL
+            val presetId = prefs[KEY_WALLPAPER_PRESET] ?: WallpaperPreset.BIGDOG_LIVE.id
+            // The new supplied gallery replaces the old generated scenes; keep custom photos intact.
+            val preset = WallpaperPreset.entries.firstOrNull { it.id == presetId && it.id.startsWith("bigdog_") }
+                ?: WallpaperPreset.BIGDOG_LIVE
             val customUri = prefs[KEY_WALLPAPER_URI]?.takeIf { it.isNotBlank() }
             val dim = (prefs[KEY_WALLPAPER_DIM] ?: 0.25f).coerceIn(0f, 0.85f)
             val blur = (prefs[KEY_WALLPAPER_BLUR] ?: 0).coerceIn(0, 3)
@@ -95,7 +98,9 @@ object LauncherPreferencesRepository {
                     customImageUri = customUri,
                     dimFraction = dim,
                     blurLevel = blur,
-                    animationEnabled = prefs[KEY_WALLPAPER_ANIMATION] ?: true
+                    animationEnabled = prefs[KEY_WALLPAPER_ANIMATION] ?: true,
+                    appIconScale = (prefs[KEY_ICON_SCALE] ?: 1f).coerceIn(0.7f, 1.2f),
+                    heroCardScale = (prefs[KEY_HERO_SCALE] ?: 1f).coerceIn(0.7f, 1.1f)
                 ),
                 lastVlcPlayback = prefs[KEY_VLC_PLAYBACK]?.let { raw ->
                     runCatching {
@@ -182,6 +187,8 @@ object LauncherPreferencesRepository {
             prefs[KEY_WALLPAPER_DIM] = settings.dimFraction
             prefs[KEY_WALLPAPER_BLUR] = settings.blurLevel
             prefs[KEY_WALLPAPER_ANIMATION] = settings.animationEnabled
+            prefs[KEY_ICON_SCALE] = settings.appIconScale.coerceIn(0.7f, 1.2f)
+            prefs[KEY_HERO_SCALE] = settings.heroCardScale.coerceIn(0.7f, 1.1f)
         }
     }
 

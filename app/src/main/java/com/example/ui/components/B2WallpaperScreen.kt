@@ -25,6 +25,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -73,6 +77,10 @@ fun B2WallpaperBackdrop(
     animationAllowed: Boolean = true
 ) {
     val resumed = rememberLauncherResumed()
+    if (!resumed) {
+        Box(modifier.fillMaxSize().background(B2Background))
+        return
+    }
     val blurModifier = when (settings.blurLevel) {
         1 -> Modifier.blur(6.dp)
         2 -> Modifier.blur(14.dp)
@@ -98,6 +106,9 @@ fun B2WallpaperBackdrop(
                     .fillMaxSize()
                     .then(blurModifier)
             )
+            if (settings.preset == WallpaperPreset.BIGDOG_LIVE && settings.animationEnabled && animationAllowed && resumed) {
+                BigDogMotionWallpaper(Modifier.fillMaxSize().then(blurModifier))
+            }
         }
 
         // Dim overlay
@@ -117,7 +128,7 @@ private fun PresetWallpaperCanvas(
     animate: Boolean,
     modifier: Modifier = Modifier
 ) {
-    if (!preset.isAnimated || !animate) {
+    if (preset == WallpaperPreset.BIGDOG_LIVE || !preset.isAnimated || !animate) {
         WallpaperArtwork(preset, 0f, modifier)
         return
     }
@@ -137,12 +148,8 @@ private fun PresetWallpaperCanvas(
 }
 
 /**
- * Full-Screen Wallpaper Studio matching the B2 Wallpaper Screen spec:
- * - Shows a full-screen preview of the selected wallpaper with a faint preview of the home layout over it.
- * - All six presets and Custom photo fit in a two-row grid, with a "Live" badge on animated ones:
- *   Aurora, Deep space, and Slow waves (animated); Charcoal, Sunset, and Forest mist (still).
- * - A dashed card lets the user add their own photo/image.
- * - Dim and Blur steppers and a "Set wallpaper" button sit above the grid.
+ * Full-screen studio: supplied motion/still artwork and Custom photo in a fixed grid.
+ * The size slider, Dim/Blur/Motion controls and Apply all support remote navigation.
  */
 @Composable
 fun B2WallpaperStudioScreen(
@@ -157,6 +164,8 @@ fun B2WallpaperStudioScreen(
     var draftCustomUri by remember(currentSettings) { mutableStateOf(currentSettings.customImageUri) }
     var draftDim by remember(currentSettings) { mutableFloatStateOf(currentSettings.dimFraction) }
     var draftBlur by remember(currentSettings) { mutableIntStateOf(currentSettings.blurLevel) }
+    var draftHeroScale by remember(currentSettings) { mutableFloatStateOf(currentSettings.heroCardScale) }
+    var draftIconScale by remember(currentSettings) { mutableFloatStateOf(currentSettings.appIconScale) }
     var draftMotion by remember(currentSettings) { mutableStateOf(currentSettings.animationEnabled) }
     val firstPresetFocusRequester = remember { FocusRequester() }
     val motionFocusRequester = remember { FocusRequester() }
@@ -171,7 +180,9 @@ fun B2WallpaperStudioScreen(
         customImageUri = draftCustomUri,
         dimFraction = draftDim,
         blurLevel = draftBlur,
-        animationEnabled = draftMotion
+        animationEnabled = draftMotion,
+        appIconScale = draftIconScale,
+        heroCardScale = draftHeroScale
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -229,19 +240,16 @@ fun B2WallpaperStudioScreen(
                 }
             }
 
-            // Faint wireframe preview of the B2 Home layout in the center
-            FaintHomeLayoutPreview(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(vertical = 18.dp)
-            )
+            // Leave the artwork visible above the compact appearance controls.
+            Spacer(Modifier.weight(1f))
 
-            // Bottom Controls: Dim & Blur steppers + Set wallpaper button above the 152x86dp preset row
+            // Appearance controls above the complete two-row wallpaper gallery.
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                AppearanceSizeControl("App size", draftIconScale, 1.2f) { draftIconScale = it }
+                AppearanceSizeControl("Hero size", draftHeroScale, 1.1f) { draftHeroScale = it }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -315,7 +323,7 @@ fun B2WallpaperStudioScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Set wallpaper",
+                                text = "Apply appearance",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = B2AccentContent
                             )
@@ -325,12 +333,13 @@ fun B2WallpaperStudioScreen(
 
                 // Fixed grid: no cropped edge cards or off-screen carousel items.
                 val orderedPresets = listOf(
-                    WallpaperPreset.AURORA,
-                    WallpaperPreset.DEEP_SPACE,
-                    WallpaperPreset.SLOW_WAVES,
-                    WallpaperPreset.CHARCOAL,
-                    WallpaperPreset.SUNSET,
-                    WallpaperPreset.FOREST_MIST
+                    WallpaperPreset.BIGDOG_LIVE,
+                    WallpaperPreset.BIGDOG_MINT,
+                    WallpaperPreset.BIGDOG_COBALT,
+                    WallpaperPreset.BIGDOG_VIOLET,
+                    WallpaperPreset.BIGDOG_EMBER,
+                    WallpaperPreset.BIGDOG_LUNAR,
+                    WallpaperPreset.BIGDOG_COPPER
                 )
 
                 val options: List<WallpaperPreset?> = orderedPresets + listOf<WallpaperPreset?>(null)
@@ -341,7 +350,7 @@ fun B2WallpaperStudioScreen(
                     options.chunked(4).forEach { row ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             row.forEach { preset ->
-                                val cardModifier = Modifier.weight(1f).height(78.dp)
+                                val cardModifier = Modifier.weight(1f).height(84.dp)
                                 if (preset != null) {
                                     WallpaperPresetCard(
                                         preset = preset,
@@ -382,6 +391,7 @@ private fun WallpaperPresetCard(
 
     TvFocusableSurface(
         itemId = "wallpaper_preset_${preset.id}",
+        itemLabel = preset.title,
         shape = shape,
         restingBrush = brush,
         focusRequester = cardFocus,
@@ -417,28 +427,14 @@ private fun WallpaperPresetCard(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.45f))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = preset.title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                    color = B2MainText
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = "Selected",
+                    tint = B2Accent,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(20.dp)
+                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
                 )
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Outlined.Check,
-                        contentDescription = "Selected",
-                        tint = B2Accent,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
             }
         }
     }
@@ -470,6 +466,34 @@ private fun CustomWallpaperCard(onPick: () -> Unit, modifier: Modifier) {
             Spacer(Modifier.height(6.dp))
             Text("Custom photo", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = B2MainText)
         }
+    }
+}
+
+/** One D-pad focus target; Left/Right change size without moving focus away. */
+@Composable
+private fun AppearanceSizeControl(label: String, value: Float, maximum: Float, onChange: (Float) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().height(48.dp)
+            .border(if (focused) 2.dp else 1.dp, if (focused) B2Accent else B2DividerBorder, RoundedCornerShape(12.dp))
+            .background(B2TileSurface.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
+            .onFocusChanged { focused = it.hasFocus }
+            .onPreviewKeyEvent { event ->
+                val key = event.nativeKeyEvent
+                if (key.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT || key.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    if (key.action == android.view.KeyEvent.ACTION_DOWN) {
+                        val delta = if (key.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT) -0.05f else 0.05f
+                        onChange((kotlin.math.round((value + delta) * 20f) / 20f).coerceIn(0.7f, maximum))
+                    }
+                    true
+                } else false
+            }.padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("$label: ${kotlin.math.round(value * 100).toInt()}%", color = B2MainText, modifier = Modifier.width(122.dp))
+        Slider(value = value, onValueChange = onChange, valueRange = 0.7f..maximum, steps = kotlin.math.round((maximum - 0.7f) / 0.05f).toInt() - 1, modifier = Modifier.weight(1f))
+        Text("Left: smaller / Right: larger", color = B2QuietText, fontSize = 12.sp)
     }
 }
 

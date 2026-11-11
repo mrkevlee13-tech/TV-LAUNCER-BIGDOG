@@ -1,6 +1,12 @@
 package com.example.ui.components
 
 import android.provider.Settings
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import com.example.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -106,12 +112,7 @@ fun B2SideRail(
                 onClick = { onSelectDestination(RailDestination.HOME) },
                 modifier = Modifier.size(44.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .border(2.5.dp, B2Accent, CircleShape)
-                        .align(Alignment.Center)
-                )
+                BigDogBrandLogo(Modifier.size(38.dp).align(Alignment.Center))
             }
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -240,6 +241,7 @@ fun B2HeaderBar(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            BigDogBrandLogo(Modifier.size(52.dp).align(Alignment.CenterVertically))
             Text(
                 text = currentTimeText,
                 style = MaterialTheme.typography.displayLarge,
@@ -345,4 +347,21 @@ private fun HeaderCircleButton(
                 .align(Alignment.Center)
         )
     }
+}
+
+/** Brief non-blocking brand reveal on app creation; never captures remote focus. */
+@Composable
+private fun BigDogBrandLogo(modifier: Modifier = Modifier) {
+    val reveal = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(850)) }
+    Image(
+        painter = painterResource(R.drawable.ic_bigdog_logo),
+        contentDescription = "BigDog Launcher",
+        modifier = modifier.graphicsLayer {
+            alpha = reveal.value
+            scaleX = 0.85f + 0.15f * reveal.value
+            scaleY = scaleX
+        },
+        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+    )
 }

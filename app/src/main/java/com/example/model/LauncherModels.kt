@@ -102,6 +102,13 @@ enum class WallpaperPreset(
     val isAnimated: Boolean,
     val colors: List<Color>
 ) {
+    BIGDOG_LIVE("bigdog_live", "BigDog motion", true, listOf(Color(0xFF071518), Color(0xFF183C34))),
+    BIGDOG_MINT("bigdog_mint", "Mint", false, listOf(Color(0xFF071518), Color(0xFF183C34))),
+    BIGDOG_COBALT("bigdog_cobalt", "Cobalt", false, listOf(Color(0xFF091221), Color(0xFF142842))),
+    BIGDOG_VIOLET("bigdog_violet", "Violet", false, listOf(Color(0xFF131027), Color(0xFF302147))),
+    BIGDOG_EMBER("bigdog_ember", "Ember", false, listOf(Color(0xFF201216), Color(0xFF422820))),
+    BIGDOG_LUNAR("bigdog_lunar", "Lunar orbit", false, listOf(Color(0xFF101926), Color(0xFF1E2A3D))),
+    BIGDOG_COPPER("bigdog_copper", "Copper facets", false, listOf(Color(0xFF1C1714), Color(0xFF332822))),
     CHARCOAL(
         id = "charcoal",
         title = "Charcoal",
@@ -141,11 +148,13 @@ enum class WallpaperPreset(
 }
 
 data class WallpaperSettings(
-    val preset: WallpaperPreset = WallpaperPreset.CHARCOAL,
+    val preset: WallpaperPreset = WallpaperPreset.BIGDOG_LIVE,
     val customImageUri: String? = null,
     val dimFraction: Float = 0.25f,
     val blurLevel: Int = 0, // 0 = Off, 1 = Subtle, 2 = Medium, 3 = High
-    val animationEnabled: Boolean = true
+    val animationEnabled: Boolean = true,
+    val appIconScale: Float = 1f,
+    val heroCardScale: Float = 1f
 )
 
 /** A resumable destination, not fabricated programme metadata or progress. */

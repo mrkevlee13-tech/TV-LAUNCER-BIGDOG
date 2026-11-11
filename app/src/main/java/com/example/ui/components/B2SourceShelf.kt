@@ -58,14 +58,15 @@ fun B2SourceShelf(
     onSelectInput: (TvInputPillItem) -> Unit,
     onOpenHero: () -> Unit,
     onChooseApp: () -> Unit,
-    previewEnabled: Boolean
+    previewEnabled: Boolean,
+    heroCardScale: Float = 1f
 ) {
     val lastVlcVideo = vlcPlayback?.takeIf { source?.kind == "app" && source.target == "org.videolan.vlc" }
     val input = inputs.firstOrNull { source?.kind == "input" && it.id == source.target }
     val scope = rememberCoroutineScope()
     val chooseAppFocus = remember { FocusRequester() }
-    Row(Modifier.fillMaxWidth().height(280.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        Box(Modifier.weight(1.15f).fillMaxHeight()) {
+    Row(Modifier.fillMaxWidth().height(280.dp * maxOf(1f, heroCardScale)), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Box(Modifier.weight(1.15f * heroCardScale).height(280.dp * heroCardScale)) {
             TvFocusableSurface(
                 itemId = "hero_source",
                 itemLabel = source?.title ?: "Choose an app or input",
@@ -86,10 +87,10 @@ fun B2SourceShelf(
                 } else {
                     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF183F45), Color(0xFF0C171F)))))
                     if (source?.kind == "app" && heroApp?.iconBitmap != null) {
-                        Image(heroApp.iconBitmap, heroApp.name, Modifier.align(Alignment.Center).size(80.dp))
+                        Image(heroApp.iconBitmap, heroApp.name, Modifier.align(Alignment.Center).size(80.dp * heroCardScale))
                     } else {
                         Icon(if (source?.kind == "media") Icons.Outlined.Movie else if (input != null) sourceIcon(input.inputType) else Icons.Outlined.Tv,
-                            null, Modifier.align(Alignment.Center).size(80.dp), tint = B2Accent.copy(alpha = 0.7f))
+                            null, Modifier.align(Alignment.Center).size(80.dp * heroCardScale), tint = B2Accent.copy(alpha = 0.7f))
                     }
                 }
                 Column(Modifier.align(Alignment.TopStart).padding(20.dp)) {
@@ -101,7 +102,7 @@ fun B2SourceShelf(
                     .padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(lastVlcVideo?.title ?: source?.title ?: "Choose an app or input", color = B2MainText,
-                            style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            style = MaterialTheme.typography.headlineMedium.copy(fontSize = (26f * heroCardScale).sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val hint = when {
                             lastVlcVideo != null -> if (lastVlcVideo.isPlaying)
                                 "VLC · Playing · OK for video" else "VLC · Paused / last video · OK to resume"
@@ -129,7 +130,7 @@ fun B2SourceShelf(
             ) { Text("Choose app", color = B2MainText, fontSize = 11.sp,
                 modifier = Modifier.align(Alignment.Center).padding(horizontal = 12.dp)) }
         }
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f).height(280.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("INPUTS", color = B2QuietText, style = MaterialTheme.typography.labelMedium)
             inputs.chunked(3).forEach { row ->
                 Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

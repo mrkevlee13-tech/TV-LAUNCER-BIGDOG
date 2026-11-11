@@ -1,5 +1,17 @@
 package com.example.ui.components
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import com.example.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -14,7 +26,33 @@ import kotlin.math.sin
 /** Resolution-independent scenes shared by Home, the studio and still thumbnails. */
 @Composable
 internal fun WallpaperArtwork(preset: WallpaperPreset, phase: Float, modifier: Modifier) {
-    Canvas(modifier) { drawWallpaperScene(preset, phase) }
+    val artwork = when (preset) {
+        WallpaperPreset.BIGDOG_LIVE, WallpaperPreset.BIGDOG_MINT -> R.drawable.wallpaper_mint
+        WallpaperPreset.BIGDOG_COBALT -> R.drawable.wallpaper_cobalt
+        WallpaperPreset.BIGDOG_VIOLET -> R.drawable.wallpaper_violet
+        WallpaperPreset.BIGDOG_EMBER -> R.drawable.wallpaper_ember
+        WallpaperPreset.BIGDOG_LUNAR -> R.drawable.wallpaper_lunar
+        WallpaperPreset.BIGDOG_COPPER -> R.drawable.wallpaper_copper
+        else -> null
+    }
+    if (artwork == null) {
+        Canvas(modifier) { drawWallpaperScene(preset, phase) }
+    } else {
+        val context = LocalContext.current
+        BoxWithConstraints(modifier) {
+            val thumbnail = maxWidth.value < 400f
+            val bitmap by produceState<ImageBitmap?>(null, artwork, thumbnail) {
+                value = withContext(Dispatchers.IO) {
+                    BitmapFactory.decodeResource(context.resources, artwork, BitmapFactory.Options().apply {
+                        inScaled = false
+                        inSampleSize = if (thumbnail) 4 else 1
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                    })?.asImageBitmap()
+                }
+            }
+            bitmap?.let { Image(it, preset.title, Modifier.matchParentSize(), contentScale = if (thumbnail) ContentScale.Fit else ContentScale.Crop) }
+        }
+    }
 }
 
 private fun DrawScope.drawWallpaperScene(preset: WallpaperPreset, phase: Float) {
@@ -130,6 +168,7 @@ private fun DrawScope.drawWallpaperScene(preset: WallpaperPreset, phase: Float) 
             }
             ridge(0.94f, 0.035f, 2f, Color(0xFF0D2524))
         }
+        else -> Unit
     }
 }
 

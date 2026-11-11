@@ -334,10 +334,11 @@ fun BigDogLauncherScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Active B2 Wallpaper Backdrop (Still, Animated Drift, or User Image + Dim & Blur)
-        B2WallpaperBackdrop(
+        if (uiState.selectedRail != RailDestination.WALLPAPER && !uiState.isInputFullScreen) B2WallpaperBackdrop(
             settings = uiState.wallpaperSettings,
             customBitmap = uiState.customWallpaperBitmap,
-            animationAllowed = uiState.selectedRail != RailDestination.WALLPAPER && !uiState.isInputFullScreen
+            animationAllowed = uiState.selectedRail != RailDestination.WALLPAPER && !uiState.isInputFullScreen &&
+                !uiState.isInputPreviewEnabled
         )
 
         if (!uiState.isInputFullScreen) Row(modifier = Modifier.fillMaxSize().focusProperties {
@@ -400,6 +401,7 @@ fun BigDogLauncherScreen(
                     )
 
                     B2SourceShelf(
+                        heroCardScale = uiState.wallpaperSettings.heroCardScale,
                         source = uiState.heroSource,
                         heroApp = resolvedHeroApp,
                         vlcPlayback = uiState.lastVlcPlayback,
@@ -422,6 +424,7 @@ fun BigDogLauncherScreen(
                     )
 
                     B2DynamicAppsRowSection(
+                        appIconScale = uiState.wallpaperSettings.appIconScale,
                         installedApps = uiState.installedApps,
                         isLoading = uiState.isLoadingApps,
                         onAppClick = { app -> viewModel.onInstalledAppClicked(context, app) },

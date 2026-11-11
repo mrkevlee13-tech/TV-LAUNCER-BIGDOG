@@ -539,6 +539,7 @@ fun B2DynamicAppsRowSection(
     allAppsFocusRequester: FocusRequester,
     listState: androidx.compose.foundation.lazy.LazyListState,
     hasSavedHomeSelection: Boolean,
+    appIconScale: Float = 1f,
     modifier: Modifier = Modifier
 ) {
     val pinnedOnly = installedApps.filter { it.isPinned }
@@ -562,7 +563,7 @@ fun B2DynamicAppsRowSection(
             state = listState,
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 2.dp)
+            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp)
         ) {
             items(
                 items = rowApps,
@@ -571,9 +572,10 @@ fun B2DynamicAppsRowSection(
                 DynamicInstalledAppTile(
                     app = app,
                     onClick = { onAppClick(app) },
+                    iconScale = appIconScale,
                     modifier = Modifier
-                        .width(144.dp)
-                        .height(92.dp)
+                        .width(144.dp * appIconScale)
+                        .height(92.dp * appIconScale)
                 )
             }
 
@@ -588,19 +590,19 @@ fun B2DynamicAppsRowSection(
                     dashedOutlineCornerRadius = 16.dp,
                     onClick = onAllAppsClick,
                     modifier = Modifier
-                        .width(144.dp)
-                        .height(92.dp)
+                        .width(144.dp * appIconScale)
+                        .height(92.dp * appIconScale)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                            .padding(horizontal = 8.dp, vertical = 12.dp * appIconScale),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(34.dp * appIconScale)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(B2TileSurface),
                             contentAlignment = Alignment.Center
@@ -612,7 +614,7 @@ fun B2DynamicAppsRowSection(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp * appIconScale))
                         Text(
                             text = if (isLoading) "Loading..." else "All apps",
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
@@ -633,6 +635,7 @@ fun DynamicInstalledAppTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showPinBadge: Boolean = false,
+    iconScale: Float = 1f,
     focusRequester: FocusRequester? = null
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -656,7 +659,7 @@ fun DynamicInstalledAppTile(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                    .padding(horizontal = 8.dp, vertical = 10.dp * iconScale),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -666,13 +669,13 @@ fun DynamicInstalledAppTile(
                         contentDescription = app.name,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(40.dp * iconScale)
                             .clip(RoundedCornerShape(10.dp))
                     )
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(40.dp * iconScale)
                             .clip(RoundedCornerShape(10.dp))
                             .background(B2RaisedSurface),
                         contentAlignment = Alignment.Center
@@ -685,7 +688,7 @@ fun DynamicInstalledAppTile(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(6.dp * iconScale))
                 Text(
                     text = app.name,
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
